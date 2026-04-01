@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系统管理与配置 - AIBOM Platform</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    .form-group { display:flex; align-items:flex-start; gap:16px; padding:14px 0; border-bottom:1px solid var(--gray-100); }
+    .form-group:last-of-type { border-bottom:none; }
+    .form-label { width:120px; flex-shrink:0; font-size:13px; font-weight:500; color:var(--text-primary); padding-top:7px; }
+    .form-control-wrap { flex:1; }
+    .form-control { width:100%; border:1px solid var(--border-color); border-radius:var(--radius-md); padding:7px 12px; font-size:13px; font-family:var(--font-sans); color:var(--text-primary); background:var(--bg-surface); outline:none; transition:var(--t-fast); }
+    .form-control:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(22,93,255,.10); }
+    .form-control:disabled { background:var(--gray-50); color:var(--gray-400); cursor:not-allowed; }
+    select.form-control { cursor:pointer; }
+    .form-hint { font-size:11px; color:var(--gray-400); margin-top:5px; }
+    .form-actions { display:flex; gap:8px; padding-top:16px; }
+
+    .toggle-wrap { display:flex; align-items:center; gap:10px; }
+    .toggle { position:relative; display:inline-block; width:40px; height:22px; flex-shrink:0; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:var(--gray-200); border-radius:100px; cursor:pointer; transition:var(--t-base); }
+    .toggle-slider::before { content:''; position:absolute; left:3px; top:3px; width:16px; height:16px; background:#fff; border-radius:50%; transition:var(--t-base); }
+    .toggle input:checked + .toggle-slider { background:var(--primary); }
+    .toggle input:checked + .toggle-slider::before { transform:translateX(18px); }
+    .toggle-text { font-size:13px; color:var(--text-secondary); }
+
+    .log-success { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:500; color:var(--success); }
+    .log-fail { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:500; color:var(--danger); }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="header" id="header"></header>
+    <div class="page-content page-enter">
+
+      <div class="page-header mb-20">
+        <div>
+          <div class="page-title">系统管理与配置</div>
+          <div class="page-desc">管理平台基础配置、用户权限、License 及系统运维相关设置</div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs mb-0">
+        <button class="tab-item active" data-tab="tab-basic"><i class="ri-settings-3-line"></i> 基础配置</button>
+        <button class="tab-item" data-tab="tab-license"><i class="ri-key-2-line"></i> License 管理</button>
+        <button class="tab-item" data-tab="tab-user"><i class="ri-team-line"></i> 用户与权限</button>
+        <button class="tab-item" data-tab="tab-notify"><i class="ri-notification-3-line"></i> 通知配置</button>
+        <button class="tab-item" data-tab="tab-log"><i class="ri-file-list-2-line"></i> 操作日志</button>
+      </div>
+
+      <!-- Tab: 基础配置 -->
+      <div class="tab-content active" id="tab-basic">
+        <div class="card mb-16 page-enter delay-1">
+          <div class="card-header"><div class="card-title"><div class="card-title-bar blue"></div>平台信息</div></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">平台名称</label>
+              <div class="form-control-wrap"><input type="text" class="form-control" value="AIBOM 资产安全管理平台"></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">平台版本</label>
+              <div class="form-control-wrap"><input type="text" class="form-control" value="V1.6.0" disabled></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">部署模式</label>
+              <div class="form-control-wrap">
+                <select class="form-control" style="width:200px;">
+                  <option selected>单机部署</option><option>集群部署</option><option>混合部署</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">数据保留期</label>
+              <div class="form-control-wrap">
+                <select class="form-control" style="width:200px;">
+                  <option>30 天</option><option selected>90 天</option><option>180 天</option><option>365 天</option><option>永久保留</option>
+                </select>
+                <div class="form-hint">超过保留期的扫描记录和日志将自动归档</div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="alert('配置已保存')"><i class="ri-save-line"></i> 保存配置</button>
+              <button class="btn btn-secondary">重置</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mb-16 page-enter delay-2">
+          <div class="card-header"><div class="card-title"><div class="card-title-bar amber"></div>扫描配置</div></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">默认扫描间隔</label>
+              <div class="form-control-wrap">
+                <select class="form-control" style="width:200px;">
+                  <option>每小时</option><option>每 6 小时</option><option selected>每 12 小时</option><option>每天</option><option>每周</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">并发扫描数</label>
+              <div class="form-control-wrap">
+                <input type="number" class="form-control" value="5" style="width:100px;">
+                <div class="form-hint">同时执行的最大扫描任务数量</div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">漏洞库更新</label>
+              <div class="form-control-wrap">
+                <div class="flex items-center gap-10 mb-8">
+                  <select class="form-control" style="width:120px;"><option selected>自动更新</option><option>手动更新</option></select>
+                  <button class="btn btn-secondary btn-sm"><i class="ri-refresh-line"></i> 立即更新</button>
+                  <span class="text-sm" style="color:var(--gray-400);">最近更新: 2025-03-05 08:30</span>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="alert('配置已保存')"><i class="ri-save-line"></i> 保存配置</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card page-enter delay-3">
+          <div class="card-header"><div class="card-title"><div class="card-title-bar green"></div>导出配置</div></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">默认导出格式</label>
+              <div class="form-control-wrap">
+                <select class="form-control" style="width:200px;">
+                  <option selected>CycloneDX JSON</option><option>CycloneDX XML</option><option>SPDX JSON</option><option>Excel</option><option>CSV</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">BOM 规范版本</label>
+              <div class="form-control-wrap">
+                <select class="form-control" style="width:200px;">
+                  <option>CycloneDX 1.4</option><option selected>CycloneDX 1.5</option><option>CycloneDX 1.6</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="alert('配置已保存')"><i class="ri-save-line"></i> 保存配置</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: License -->
+      <div class="tab-content" id="tab-license">
+        <div class="stat-grid mb-16">
+          <div class="stat-card page-enter delay-1">
+            <div class="stat-card-top"><div><div class="stat-label">License 总数</div><div class="stat-value">50</div></div><div class="stat-icon blue"><i class="ri-key-2-line"></i></div></div>
+            <div class="stat-footer"><span class="stat-footer-label">已激活</span><span class="stat-footer-val blue">3 个</span></div>
+            <div class="stat-card-bar blue"></div>
+          </div>
+          <div class="stat-card page-enter delay-2">
+            <div class="stat-card-top"><div><div class="stat-label">已使用</div><div class="stat-value">32</div></div><div class="stat-icon green"><i class="ri-checkbox-circle-line"></i></div></div>
+            <div class="stat-footer"><span class="stat-footer-label">使用率</span><span class="stat-footer-val green">64%</span></div>
+            <div class="stat-card-bar green"></div>
+          </div>
+          <div class="stat-card page-enter delay-3">
+            <div class="stat-card-top"><div><div class="stat-label">即将到期</div><div class="stat-value">3</div></div><div class="stat-icon amber"><i class="ri-time-line"></i></div></div>
+            <div class="stat-footer"><span class="stat-footer-label">30 天内到期</span><span class="stat-footer-val amber">3 个</span></div>
+            <div class="stat-card-bar amber"></div>
+          </div>
+          <div class="stat-card page-enter delay-4">
+            <div class="stat-card-top"><div><div class="stat-label">已过期</div><div class="stat-value">1</div></div><div class="stat-icon red"><i class="ri-close-circle-line"></i></div></div>
+            <div class="stat-footer"><span class="stat-footer-label">需要续期</span><span class="stat-footer-val red">1 个</span></div>
+            <div class="stat-card-bar red"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-bar blue"></div>License 列表</div>
+            <button class="btn btn-primary btn-sm"><i class="ri-add-line"></i> 导入 License</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead><tr><th>License Key</th><th>类型</th><th>授权数</th><th>已使用</th><th>生效日期</th><th>到期日期</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono text-sm">AIBOM-ENT-2025-A1B2C3</td><td><span class="badge badge-info">企业版</span></td><td>30</td><td>28</td><td>2025-01-01</td><td>2026-01-01</td><td><span class="status-tag st-online"><span class="status-dot online"></span>有效</span></td><td><button class="btn btn-xs btn-ghost">详情</button></td></tr>
+                  <tr><td class="mono text-sm">AIBOM-STD-2025-D4E5F6</td><td><span class="badge badge-purple">标准版</span></td><td>20</td><td>4</td><td>2025-02-15</td><td>2026-02-15</td><td><span class="status-tag st-online"><span class="status-dot online"></span>有效</span></td><td><button class="btn btn-xs btn-ghost">详情</button></td></tr>
+                  <tr><td class="mono text-sm">AIBOM-TRL-2024-G7H8I9</td><td><span class="badge badge-medium">试用版</span></td><td>5</td><td>5</td><td>2024-10-01</td><td>2025-04-01</td><td><span class="status-tag st-offline"><span class="status-dot offline"></span>即将到期</span></td><td><button class="btn btn-xs btn-ghost">详情</button> <button class="btn btn-xs btn-primary">续期</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: 用户与权限 -->
+      <div class="tab-content" id="tab-user">
+        <div class="card mb-16">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-bar blue"></div>用户列表</div>
+            <button class="btn btn-primary btn-sm"><i class="ri-user-add-line"></i> 添加用户</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead><tr><th>用户名</th><th>姓名</th><th>邮箱</th><th>角色</th><th>状态</th><th>最后登录</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td class="fw-600">admin</td><td>系统管理员</td><td class="mono text-sm">admin@aibom.local</td><td><span class="badge badge-critical">超级管理员</span></td><td><span class="status-tag st-online"><span class="status-dot online"></span>在线</span></td><td class="mono text-sm">2025-03-05 10:23</td><td><button class="btn btn-xs btn-ghost">编辑</button></td></tr>
+                  <tr><td class="fw-600">zhangwei</td><td>张伟</td><td class="mono text-sm">zhangwei@company.com</td><td><span class="badge badge-info">安全管理员</span></td><td><span class="status-tag st-online"><span class="status-dot online"></span>在线</span></td><td class="mono text-sm">2025-03-05 09:15</td><td><button class="btn btn-xs btn-ghost">编辑</button> <button class="btn btn-xs btn-ghost" style="color:var(--danger);">禁用</button></td></tr>
+                  <tr><td class="fw-600">liming</td><td>李明</td><td class="mono text-sm">liming@company.com</td><td><span class="badge badge-low">审计员</span></td><td><span class="status-tag st-offline"><span class="status-dot offline"></span>离线</span></td><td class="mono text-sm">2025-03-04 17:42</td><td><button class="btn btn-xs btn-ghost">编辑</button> <button class="btn btn-xs btn-ghost" style="color:var(--danger);">禁用</button></td></tr>
+                  <tr><td class="fw-600">wangjing</td><td>王静</td><td class="mono text-sm">wangjing@company.com</td><td><span class="badge badge-medium">运维工程师</span></td><td><span class="status-tag st-offline"><span class="status-dot offline"></span>离线</span></td><td class="mono text-sm">2025-03-03 14:08</td><td><button class="btn btn-xs btn-ghost">编辑</button> <button class="btn btn-xs btn-ghost" style="color:var(--danger);">禁用</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-bar purple"></div>角色权限</div>
+            <button class="btn btn-secondary btn-sm"><i class="ri-shield-user-line"></i> 添加角色</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead><tr><th>角色名称</th><th>描述</th><th>用户数</th><th>权限范围</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td class="fw-600">超级管理员</td><td>拥有所有权限，可管理系统配置和用户</td><td>1</td><td><span class="badge badge-critical">全部权限</span></td><td><span class="text-sm" style="color:var(--gray-400);">系统内置</span></td></tr>
+                  <tr><td class="fw-600">安全管理员</td><td>管理探针、扫描任务、漏洞和 BOM 数据</td><td>1</td><td><span class="badge badge-info" style="margin-right:4px;">探针管理</span><span class="badge badge-info" style="margin-right:4px;">BOM管理</span><span class="badge badge-info">漏洞管理</span></td><td><button class="btn btn-xs btn-ghost">编辑</button></td></tr>
+                  <tr><td class="fw-600">运维工程师</td><td>管理探针和执行扫描任务</td><td>1</td><td><span class="badge badge-medium" style="margin-right:4px;">探针管理</span><span class="badge badge-medium">BOM查看</span></td><td><button class="btn btn-xs btn-ghost">编辑</button></td></tr>
+                  <tr><td class="fw-600">审计员</td><td>只读权限，查看所有数据和操作日志</td><td>1</td><td><span class="badge badge-low">只读查看</span></td><td><button class="btn btn-xs btn-ghost">编辑</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: 通知配置 -->
+      <div class="tab-content" id="tab-notify">
+        <div class="card mb-16">
+          <div class="card-header"><div class="card-title"><div class="card-title-bar blue"></div>通知渠道</div></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">邮件通知</label>
+              <div class="form-control-wrap">
+                <div class="toggle-wrap mb-14">
+                  <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+                  <span class="toggle-text">已启用</span>
+                </div>
+                <div class="flex gap-12 flex-wrap">
+                  <div>
+                    <div class="form-hint mb-4">SMTP 服务器</div>
+                    <input type="text" class="form-control" value="smtp.company.com" style="width:220px;">
+                  </div>
+                  <div>
+                    <div class="form-hint mb-4">端口</div>
+                    <input type="text" class="form-control" value="465" style="width:90px;">
+                  </div>
+                  <div>
+                    <div class="form-hint mb-4">发件人</div>
+                    <input type="text" class="form-control" value="aibom-alert@company.com" style="width:260px;">
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Webhook</label>
+              <div class="form-control-wrap">
+                <div class="toggle-wrap mb-14">
+                  <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+                  <span class="toggle-text" style="color:var(--gray-400);">未启用</span>
+                </div>
+                <input type="text" class="form-control" placeholder="https://hooks.example.com/services/..." style="max-width:460px;">
+                <div class="form-hint">支持企业微信、钉钉、飞书等 Webhook 地址</div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="alert('配置已保存')"><i class="ri-save-line"></i> 保存通知配置</button>
+              <button class="btn btn-secondary"><i class="ri-send-plane-line"></i> 发送测试</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-bar amber"></div>通知规则</div>
+            <button class="btn btn-primary btn-sm"><i class="ri-add-line"></i> 添加规则</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead><tr><th>规则名称</th><th>触发条件</th><th>通知渠道</th><th>接收人</th><th>状态</th><th>操作</th></tr></thead>
+                <tbody>
+                  <tr><td class="fw-600">严重漏洞告警</td><td>发现严重等级漏洞</td><td><span class="badge" style="background:var(--primary-light);color:var(--primary);"><i class="ri-mail-line"></i> 邮件</span></td><td>admin, zhangwei</td><td><span class="status-tag st-online"><span class="status-dot online"></span>已启用</span></td><td><button class="btn btn-xs btn-ghost">编辑</button> <button class="btn btn-xs btn-ghost" style="color:var(--danger);">禁用</button></td></tr>
+                  <tr><td class="fw-600">探针离线告警</td><td>探针离线超过 30 分钟</td><td><span class="badge" style="background:var(--primary-light);color:var(--primary);"><i class="ri-mail-line"></i> 邮件</span></td><td>admin</td><td><span class="status-tag st-online"><span class="status-dot online"></span>已启用</span></td><td><button class="btn btn-xs btn-ghost">编辑</button> <button class="btn btn-xs btn-ghost" style="color:var(--danger);">禁用</button></td></tr>
+                  <tr><td class="fw-600">扫描任务失败</td><td>扫描任务执行失败</td><td><span class="badge" style="background:var(--primary-light);color:var(--primary);"><i class="ri-mail-line"></i> 邮件</span></td><td>admin, wangjing</td><td><span class="status-tag st-offline"><span class="status-dot offline"></span>已停用</span></td><td><button class="btn btn-xs btn-ghost">编辑</button> <button class="btn btn-xs btn-primary">启用</button></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: 操作日志 -->
+      <div class="tab-content" id="tab-log">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-bar green"></div>操作日志</div>
+            <button class="btn btn-secondary btn-sm"><i class="ri-download-2-line"></i> 导出日志</button>
+          </div>
+          <div class="card-body" style="padding:12px 16px; border-bottom:1px solid var(--gray-100);">
+            <div class="flex gap-8 flex-wrap">
+              <div class="filter-input-group"><i class="ri-search-line"></i><input type="text" placeholder="搜索操作内容..."></div>
+              <select class="filter-select"><option value="">全部操作类型</option><option>登录</option><option>探针操作</option><option>扫描任务</option><option>数据导出</option><option>系统配置</option></select>
+              <select class="filter-select"><option value="">全部用户</option><option>admin</option><option>zhangwei</option><option>liming</option><option>wangjing</option></select>
+              <button class="btn btn-ghost btn-sm"><i class="ri-filter-off-line"></i> 重置</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead><tr><th>时间</th><th>用户</th><th>操作类型</th><th>操作内容</th><th>IP 地址</th><th>结果</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono text-sm">2025-03-05 10:23:45</td><td>admin</td><td><span class="badge" style="background:var(--primary-light);color:var(--primary);">登录</span></td><td>用户登录系统</td><td class="mono text-sm">192.168.1.100</td><td><span class="log-success"><i class="ri-checkbox-circle-fill"></i> 成功</span></td></tr>
+                  <tr><td class="mono text-sm">2025-03-05 10:15:30</td><td>zhangwei</td><td><span class="badge" style="background:var(--amber-light);color:var(--amber);">扫描任务</span></td><td>创建扫描任务「生产环境全量扫描」</td><td class="mono text-sm">192.168.1.102</td><td><span class="log-success"><i class="ri-checkbox-circle-fill"></i> 成功</span></td></tr>
+                  <tr><td class="mono text-sm">2025-03-05 09:48:12</td><td>admin</td><td><span class="badge" style="background:var(--cyan-light);color:var(--cyan);">探针操作</span></td><td>启用探针「prod-web-03」</td><td class="mono text-sm">192.168.1.100</td><td><span class="log-success"><i class="ri-checkbox-circle-fill"></i> 成功</span></td></tr>
+                  <tr><td class="mono text-sm">2025-03-05 09:30:00</td><td>zhangwei</td><td><span class="badge" style="background:var(--green-light);color:var(--success);">数据导出</span></td><td>导出 BOM 清单（CycloneDX JSON）</td><td class="mono text-sm">192.168.1.102</td><td><span class="log-success"><i class="ri-checkbox-circle-fill"></i> 成功</span></td></tr>
+                  <tr><td class="mono text-sm">2025-03-04 18:20:45</td><td>wangjing</td><td><span class="badge" style="background:var(--cyan-light);color:var(--cyan);">探针操作</span></td><td>注册探针「staging-app-02」</td><td class="mono text-sm">192.168.1.105</td><td><span class="log-success"><i class="ri-checkbox-circle-fill"></i> 成功</span></td></tr>
+                  <tr><td class="mono text-sm">2025-03-04 17:55:00</td><td>admin</td><td><span class="badge" style="background:var(--primary-light);color:var(--primary);">系统配置</span></td><td>修改扫描配置 - 并发数调整为 5</td><td class="mono text-sm">192.168.1.100</td><td><span class="log-success"><i class="ri-checkbox-circle-fill"></i> 成功</span></td></tr>
+                  <tr><td class="mono text-sm">2025-03-04 16:30:22</td><td>liming</td><td><span class="badge" style="background:var(--primary-light);color:var(--primary);">登录</span></td><td>用户登录失败 - 密码错误</td><td class="mono text-sm">10.0.0.55</td><td><span class="log-fail"><i class="ri-close-circle-fill"></i> 失败</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pagination">
+              <span>共 156 条记录，第 1 / 20 页</span>
+              <div class="page-buttons">
+                <button class="page-btn" disabled>&laquo;</button>
+                <button class="page-btn active">1</button>
+                <button class="page-btn">2</button>
+                <button class="page-btn">3</button>
+                <button class="page-btn">...</button>
+                <button class="page-btn">20</button>
+                <button class="page-btn">&raquo;</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+<script src="common.js"></script>
+<script>
+  initPage('setting', [{label:'系统管理与配置'}]);
+</script>
+</body>
+</html>

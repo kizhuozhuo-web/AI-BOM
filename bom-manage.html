@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BOM 管理 - AIBOM Platform</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    .split-layout { display:grid; grid-template-columns:280px 1fr; gap:0; height:calc(100vh - 120px); min-height:600px; }
+    .tree-panel { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-lg); overflow:hidden; display:flex; flex-direction:column; }
+    .tree-panel-header { padding:12px 16px; border-bottom:1px solid var(--border-color); background:var(--gray-50); display:flex; align-items:center; gap:8px; flex-shrink:0; justify-content:space-between; }
+    .tree-search { flex:1; display:flex; align-items:center; gap:6px; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:0 8px; }
+    .tree-search input { border:none; background:transparent; outline:none; font-size:12px; padding:5px 0; width:100%; color:var(--text-primary); }
+    .tree-search i { color:var(--gray-400); font-size:13px; flex-shrink:0; }
+    .tree-body { flex:1; overflow-y:auto; padding:8px; }
+    .tree-node { display:flex; align-items:center; gap:6px; padding:5px 8px; border-radius:var(--radius-sm); cursor:pointer; font-size:12px; color:var(--text-secondary); transition:var(--t-fast); user-select:none; }
+    .tree-node:hover { background:var(--gray-50); color:var(--text-primary); }
+    .tree-node.active { background:var(--primary-50); color:var(--primary); font-weight:600; }
+    .tree-node .tree-toggle { width:14px; height:14px; display:flex; align-items:center; justify-content:center; color:var(--gray-400); font-size:12px; flex-shrink:0; transition:transform .2s; }
+    .tree-node .tree-toggle.open { transform:rotate(90deg); }
+    .tree-node .tree-icon { font-size:13px; flex-shrink:0; }
+    .tree-icon.sys { color:var(--primary); }
+    .tree-icon.app { color:var(--success); }
+    .tree-icon.container { color:var(--purple); }
+    .tree-icon.model { color:var(--warning); }
+    .tree-icon.comp { color:var(--gray-400); }
+    .tree-label { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tree-badge { font-size:10px; font-weight:700; padding:0 5px; border-radius:100px; background:var(--danger); color:#fff; flex-shrink:0; }
+    .tree-children { display:none; padding-left:16px; }
+    .tree-children.open { display:block; }
+    .ai-tag { display:inline-flex; align-items:center; padding:0 4px; font-size:9px; font-weight:700; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border-radius:2px; margin-left:4px; letter-spacing:.5px; }
+
+    .view-panel { padding-left:16px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+    .system-summary-card { background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:10px 14px; box-shadow:var(--shadow-card); }
+    .ss-header { display:flex; align-items:center; gap:14px; margin-bottom:0; }
+    .ss-icon { width:44px; height:44px; border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; font-size:22px; }
+    .ss-icon.sys { background:var(--primary-50); color:var(--primary); }
+    .ss-icon.app { background:var(--cyan-light); color:var(--cyan); }
+    .ss-icon.container { background:var(--purple-light); color:var(--purple); }
+    .ss-icon.comp { background:var(--gray-100); color:var(--gray-600); }
+    .ss-head { display:flex; flex-direction:column; gap:2px; }
+    .ss-title-row { display:flex; align-items:center; gap:8px; }
+    .ss-metrics { display:flex; align-items:center; gap:8px; margin-top:2px; font-size:12px; color:var(--text-secondary); }
+    .ss-metric { display:inline-flex; align-items:center; gap:6px; }
+    .ss-metric-label { color:var(--text-tertiary); }
+    .ss-metric-val { font-weight:700; color:var(--text-primary); }
+    .ss-metric-val.primary { color:var(--primary); }
+    .ss-metric-val.danger { color:var(--danger); }
+    .ss-metric-sep { color:var(--border-color); }
+    .ss-divider { height:1px; background:var(--gray-100); margin:12px 0; }
+    .ss-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px 16px; }
+    .ss-extra-toggle-row { display:flex; justify-content:center; padding-top:6px; }
+    .ss-extra-toggle-btn { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-secondary); border:none; background:transparent; cursor:pointer; padding:6px 8px; border-radius:10px; transition:var(--t-fast); min-width:32px; justify-content:center; }
+    .ss-extra-toggle-btn:hover { background:var(--gray-50); color:var(--text-primary); }
+    .ss-extra-toggle-btn i { font-size:16px; transition:transform .2s; }
+    .ss-extra-grid { margin-top:8px; border-top:1px dashed var(--border-color); padding-top:8px; }
+    .sf.sf-wide { grid-column:1 / -1; }
+    .sf.sf-wide .sf-val.truncate { max-width:100%; }
+    .sf { display:flex; align-items:center; gap:8px; font-size:12px; }
+    .sf-label { color:var(--gray-400); min-width:64px; flex-shrink:0; }
+    .sf-val { color:var(--text-primary); font-weight:500; }
+    .sf-val.truncate { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; display:block; }
+    
+    .data-table th:last-child, .data-table td:last-child { text-align: left; }
+
+    .dropdown { position:relative; }
+    .dropdown-menu { display:none; position:absolute; top:calc(100% + 4px); left:0; z-index:50; background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:var(--shadow-md); min-width:180px; overflow:hidden; }
+    .dropdown-menu.show { display:block; }
+    .dropdown-item { display:flex; align-items:center; gap:8px; padding:8px 14px; font-size:13px; color:var(--text-primary); cursor:pointer; transition:background .15s; }
+    .dropdown-item:hover { background:var(--primary-50); color:var(--primary); }
+    .dropdown-item i { font-size:14px; color:var(--gray-400); }
+    
+    .license-popover { position:fixed; z-index:201; width:min(240px, calc((100vw - 32px) / 3)); background:var(--bg-surface); border:1px solid var(--border-color); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); display:none; overflow:hidden; }
+    .license-popover.show { display:block; }
+    .license-popover-header { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--border-color); }
+    .license-popover-title { font-size:12px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px; }
+    .license-popover-count { color:var(--text-tertiary); font-weight:600; font-family:var(--font-mono); }
+    .license-popover-close { width:24px; height:24px; border-radius:8px; border:1px solid var(--border-color); background:transparent; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:var(--t-fast); }
+    .license-popover-close:hover { background:var(--gray-50); color:var(--text-primary); }
+    .license-popover-body { padding:10px 12px; max-height:none; overflow:visible; font-size:14px; }
+    .license-popover-body::-webkit-scrollbar { width:8px; }
+    .license-popover-body::-webkit-scrollbar-track { background:transparent; }
+    .license-popover-body::-webkit-scrollbar-thumb { background:rgba(134,144,156,.35); border-radius:8px; border:2px solid transparent; background-clip:content-box; }
+    .license-popover-body::-webkit-scrollbar-thumb:hover { background:rgba(134,144,156,.55); border:2px solid transparent; background-clip:content-box; }
+    .license-list { display:flex; flex-direction:column; gap:8px; }
+    .license-item { padding:6px 12px; background:var(--gray-50); border:1px solid var(--border-color); border-radius:var(--radius-md); display:flex; align-items:center; }
+    .license-item-name { font-weight:400; color:var(--text-primary); }
+
+    /* Side panel for vuln detail */
+    .sp-section { margin-bottom:20px; }
+    .sp-section-title { font-size:12px; font-weight:600; color:var(--text-primary); margin-bottom:10px; display:flex; align-items:center; gap:6px; padding-bottom:0; border-bottom:none; }
+    .info-section-title { padding-bottom:0 !important; border-bottom:none !important; }
+    .sp-section-title i { font-size:13px; color:var(--primary); }
+    .sp-title-group { display:flex; align-items:center; gap:10px; }
+    .sp-cve { font-size:15px; font-weight:700; font-family:var(--font-mono); color:var(--text-primary); }
+    .sp-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .sp-table thead { background:var(--gray-50); }
+    .sp-table th { padding:7px 10px; text-align:left; font-weight:600; color:var(--text-secondary); font-size:11px; border-bottom:1px solid var(--border-color); }
+    .sp-table td { padding:8px 10px; border-bottom:1px solid var(--gray-100); color:var(--text-primary); vertical-align:middle; }
+    .sp-table tbody tr:hover { background:var(--primary-50); }
+    .repo-kv-table th { width: 96px; }
+    .repo-kv-table td { font-size: 12px; }
+    .repo-kv-table td a { color: var(--primary); word-break: break-all; text-decoration: none; }
+    .repo-kv-table td a:hover { text-decoration: underline; }
+
+    /* Charts */
+    .chart-js-area { width: 100% !important; height: 220px !important; }
+    canvas.chart-js-area { display: block; }
+    
+    /* Trend legend */
+    .trend-legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .trend-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--gray-500); }
+    .trend-legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+    
+    .view-panel > .system-summary-card, .view-panel > .card { margin: 0; }
+
+    /* Distribution chart row */
+    .dist-row { display: flex; gap: 16px; }
+    .dist-donut { flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .dist-legend { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+    .dist-legend-item { display: flex; align-items: center; gap: 8px; }
+    .dist-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .dist-legend-label { font-size: 12px; color: var(--text-secondary); flex: 1; }
+    .dist-legend-count { font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); min-width: 40px; text-align: right; }
+    .dist-legend-pct { font-size: 11px; color: var(--gray-400); font-family: var(--font-mono); min-width: 44px; text-align: right; }
+    .dist-bar-wrap { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+    .dist-bar { flex: 1; height: 3px; background: var(--gray-100); border-radius: 2px; overflow: hidden; }
+    .dist-bar-fill { height: 100%; border-radius: 2px; }
+
+    /* ── Dark mode: bom-manage specific ── */
+    html.dark .tree-panel { background: var(--bg-surface); border-color: var(--border-color); }
+    html.dark .tree-panel-header { border-color: var(--border-color); background: var(--dm-gray-50); }
+    html.dark .tree-search { background: var(--dm-bg-input); border-color: var(--border-color); }
+    html.dark .tree-search input { color: var(--text-primary); }
+    html.dark .tree-node:hover { background: var(--bg-hover); color: var(--text-primary); }
+    html.dark .tree-node.active { background: var(--dm-primary-50); color: var(--dm-primary); }
+    html.dark .tree-children { border-color: var(--border-color); }
+    html.dark .system-summary-card { background: var(--bg-surface); border-color: var(--border-color); }
+    html.dark .ss-icon.sys { background: var(--dm-primary-50) !important; color: var(--dm-primary) !important; }
+    html.dark .ss-icon.app { background: rgba(15,198,194,.15) !important; color: #22d3ee !important; }
+    html.dark .ss-icon.container { background: rgba(114,46,209,.15) !important; color: #c084fc !important; }
+    html.dark .ss-icon.comp { background: var(--dm-gray-100) !important; color: var(--dm-text-secondary) !important; }
+    html.dark .dropdown-menu { background: var(--bg-surface); border-color: var(--border-color); }
+    html.dark .dropdown-item:hover { background: var(--dm-primary-50); color: var(--dm-primary); }
+    html.dark .license-popover { background: var(--bg-surface); border-color: var(--border-color); }
+    html.dark .license-popover-close:hover { background: var(--dm-gray-50); }
+    html.dark .license-item { background: var(--dm-gray-50); border-color: var(--border-color); }
+    html.dark .sp-table thead { background: var(--dm-gray-50); }
+    html.dark .sp-table th { border-color: var(--border-color); color: var(--dm-text-secondary); }
+    html.dark .sp-table td { border-color: var(--border-color); }
+    html.dark .sp-table tbody tr:hover { background: var(--dm-primary-50); }
+    html.dark .sp-section-title { border-bottom:none; }
+    html.dark .dist-bar { background: var(--dm-gray-200); }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="header" id="header"></header>
+    <div class="page-content page-enter" style="height:calc(100vh - 56px);overflow:hidden;display:flex;flex-direction:column;">
+
+      <div class="page-header mb-16" style="flex-shrink:0;">
+        <div>
+          <div class="page-title">BOM 管理</div>
+          <div class="page-desc">管理全平台软件物料清单，支持多维度视图切换与全局统计分析。</div>
+        </div>
+        <div class="flex items-center gap-8">
+           <a href="bom-graph.html" class="btn btn-secondary"><i class="ri-node-tree"></i> 资产图谱</a>
+           <div class="dropdown">
+            <button class="btn btn-primary" onclick="toggleDropdown('exportDd')"><i class="ri-download-2-line"></i> 导出 BOM <i class="ri-arrow-down-s-line"></i></button>
+            <div class="dropdown-menu" id="exportDd">
+              <div class="dropdown-item" onclick="exportBOM('cyclonedx-json')"><i class="ri-file-code-line"></i> CycloneDX JSON</div>
+              <div class="dropdown-item" onclick="exportBOM('excel')"><i class="ri-file-excel-line"></i> Excel 组件清单</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stat-grid mb-16" style="flex-shrink:0;">
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div><div class="stat-label">资产总数</div><div class="stat-value">1,284</div></div>
+            <div class="stat-icon blue"><i class="ri-server-line"></i></div>
+          </div>
+          <div class="stat-footer"><span class="stat-footer-label">较上周</span><span class="stat-footer-val blue">+12.5%</span></div>
+          <div class="stat-card-bar blue"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div><div class="stat-label">风险资产数</div><div class="stat-value">237</div></div>
+            <div class="stat-icon red"><i class="ri-alert-line"></i></div>
+          </div>
+          <div class="stat-footer">
+            <span class="stat-footer-label">系统/应用/容器/模型</span>
+            <span class="stat-footer-val" style="display:flex;gap:4px;">
+              <span style="color:var(--danger)">18</span>/
+              <span style="color:var(--danger)">86</span>/
+              <span style="color:var(--danger)">72</span>/
+              <span style="color:var(--danger)">61</span>
+            </span>
+          </div>
+          <div class="stat-card-bar red"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div><div class="stat-label">组件总数</div><div class="stat-value">15,832</div></div>
+            <div class="stat-icon purple"><i class="ri-code-box-line"></i></div>
+          </div>
+          <div class="stat-footer"><span class="stat-footer-label">较上周</span><span class="stat-footer-val" style="color:var(--purple);">+8.3%</span></div>
+          <div class="stat-card-bar" style="background:var(--purple);"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div><div class="stat-label">漏洞总数</div><div class="stat-value">3,847</div></div>
+            <div class="stat-icon red"><i class="ri-bug-line"></i></div>
+          </div>
+          <div class="stat-footer">
+            <span class="stat-footer-label">严重/高危/中危/低危</span>
+            <span class="stat-footer-val" style="display:flex;gap:4px;">
+              <span style="color:var(--purple)">401</span>/
+              <span style="color:var(--danger)">846</span>/
+              <span style="color:var(--warning)">1350</span>/
+              <span style="color:var(--success)">1250</span>
+            </span>
+          </div>
+          <div class="stat-card-bar red"></div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid-2 mb-16" style="flex-shrink:0;">
+        <!-- Asset Composition Chart -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="card-title-bar blue"></div>
+              资产构成
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:16px;">
+            <div class="dist-row">
+              <div class="dist-donut">
+                <canvas id="assetDistChart" width="140" height="140"></canvas>
+              </div>
+              <div class="dist-legend">
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:var(--primary);"></div>
+                  <span class="dist-legend-label">系统</span>
+                  <span class="dist-legend-count">385</span>
+                  <span class="dist-legend-pct">30%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="width:30%;background:var(--primary);"></div></div></div>
+                
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:var(--success);"></div>
+                  <span class="dist-legend-label">应用</span>
+                  <span class="dist-legend-count">321</span>
+                  <span class="dist-legend-pct">25%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="width:25%;background:var(--success);"></div></div></div>
+
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:var(--purple);"></div>
+                  <span class="dist-legend-label">容器</span>
+                  <span class="dist-legend-count">257</span>
+                  <span class="dist-legend-pct">20%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="width:20%;background:var(--purple);"></div></div></div>
+
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:var(--warning);"></div>
+                  <span class="dist-legend-label">模型</span>
+                  <span class="dist-legend-count">321</span>
+                  <span class="dist-legend-pct">25%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="width:25%;background:var(--warning);"></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Vulnerability Trend Chart -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="card-title-bar red"></div>
+              近一周新增漏洞趋势
+            </div>
+            <div class="trend-legend">
+              <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#722ED1;"></div>严重</div>
+              <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#F53F3F;"></div>高危</div>
+              <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#FF7D00;"></div>中危</div>
+              <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#00B42A;"></div>低危</div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:12px;">
+            <canvas id="vulnTrendChart" class="chart-js-area"></canvas>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Split Layout -->
+      <div class="split-layout" style="flex:1;overflow:hidden;">
+        <!-- Tree Panel -->
+        <div class="tree-panel">
+          <div class="tree-panel-header">
+            <div class="tree-search">
+              <i class="ri-search-line"></i>
+              <input type="text" id="treeSearchInput" placeholder="搜索资产/IP..." oninput="searchTree(this.value)">
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="resetTree()"><i class="ri-refresh-line"></i> 重置</button>
+          </div>
+          <!-- 新增：资产树容器 -->
+          <div class="tree-body" id="assetTree"></div>
+        </div>
+
+        <!-- View Panel -->
+        <!-- 新增：视图容器 -->
+        <div class="view-panel" id="viewPanel"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Side Panel -->
+<div class="side-panel-overlay" id="spOverlay" onclick="closePanel()"></div>
+<div class="side-panel" id="sidePanel">
+  <div class="side-panel-header">
+    <div style="font-size:14px;font-weight:700;color:var(--text-primary);" id="spTitle">组件漏洞详情</div>
+    <button class="side-panel-close" onclick="closePanel()"><i class="ri-close-line"></i></button>
+  </div>
+  <div class="side-panel-body" id="spBody"></div>
+</div>
+
+<!-- License Popover -->
+<div class="license-popover" id="licensePopover">
+  <div class="license-popover-header">
+    <div class="license-popover-title">许可证列表 <span class="license-popover-count" id="licensePopoverCount">(0)</span></div>
+    <button class="license-popover-close" onclick="closeLicensePopover()"><i class="ri-close-line"></i></button>
+  </div>
+  <div class="license-popover-body" id="licensePopoverBody"></div>
+</div>
+
+<script src="common.js"></script>
+<script>
+  initPage('bom', [{label:'BOM 管理'}]);
+
+  // 新增：资产树导航与联动逻辑
+  
+  // 1. 模拟资产数据
+  const assetTreeData = [
+    {
+      id: 'sys-1', name: 'web-prod-gateway', type: 'sys', ip: '192.168.1.10',
+      info: { 
+        hostname: 'web-prod-gateway', 
+        ip: '192.168.1.10', 
+        ips: ['192.168.1.10', '10.0.0.5'], 
+        os: 'Linux', 
+        osVersion: '14.0.0',
+        arch: 'amd64', 
+        distro: 'Ubuntu',
+        distroVersion: '22.04 LTS',
+        kernelVersion: '6.8.0-41-generic',
+        virtSystem: 'KVM',
+        virtRole: 'Guest',
+        uptime: '43天12小时',
+        processCount: 312,
+        zone: 'DMZ', 
+        compCount: 128, 
+        vulnCount: 87, 
+        lastUpdate: '2026-03-07 09:12' 
+      },
+      children: [
+        {
+          id: 'cnt-1', name: 'k8s/nginx-ingress', type: 'container',
+          info: { system: 'web-prod-gateway', image: 'nginx:1.18-alpine', imageTags: ['nginx:1.25','nginx:1.25-alpine','nginx:1.25.4'], imageSizeMB: 128, createdAt: '2026-03-07 08:21', arch: 'amd64', os: 'Linux', distro: 'Ubuntu', distroVersion: '22.04 LTS', id: 'cnt-a1b2c3d4', status: 'Running', assetCount: 1, compCount: 45, vulnCount: 12 },
+          children: [
+            {
+              id: 'app-1', name: 'nginx-core', type: 'app',
+              info: { system: 'web-prod-gateway', version: '1.18.0', compCount: 45, vulnCount: 12, container: 'k8s/nginx-ingress', model: '-', assetCount: 0, appPath: '/usr/local/nginx-core' },
+              children: [
+                { id: 'cmp-1', name: 'nginx', type: 'comp', isAI: false, info: { version: '1.18.0', type: 'Web Server', vulnCount: 5, desc: 'High performance web server', system: 'web-prod-gateway', app: 'nginx-core', language: 'C', license: 'BSD-2-Clause', homepage: 'https://nginx.org', repo: 'https://github.com/nginx/nginx', registry: 'Docker Hub' } },
+                { id: 'cmp-2', name: 'openssl', type: 'comp', isAI: false, info: { version: '1.1.1k', type: 'Library', vulnCount: 7, desc: 'Cryptography and SSL/TLS Toolkit', system: 'web-prod-gateway', app: 'nginx-core', language: 'C', license: 'Apache-2.0', homepage: 'https://www.openssl.org/', repo: 'https://github.com/openssl/openssl', registry: 'Ubuntu Repo' } }
+              ]
+            },
+            { id: 'cmp-os-1', name: 'alpine-baselayout', type: 'comp', isAI: false, info: { version: '3.2.0', type: 'OS Package', vulnCount: 0, desc: 'Alpine Base Layout', system: 'web-prod-gateway', app: '-', container: 'k8s/nginx-ingress', language: '-', license: 'GPL-2.0', homepage: 'https://alpinelinux.org', repo: '-', registry: 'Alpine Repo' } }
+          ]
+        },
+        {
+           id: 'app-2', name: 'host-monitor', type: 'app',
+           info: { system: 'web-prod-gateway', version: '2.4.1', compCount: 12, vulnCount: 3, container: '-', model: '-', assetCount: 0, appPath: '/opt/host-monitor' },
+           children: [
+             { id: 'cmp-hm-1', name: 'host-monitor-agent', type: 'comp', isAI: false, info: { version: '2.4.1', type: 'Agent', vulnCount: 1, desc: 'Host monitoring agent', system: 'web-prod-gateway', app: 'host-monitor', language: 'C/Python', license: 'Apache-2.0', homepage: 'https://example.com/host-monitor-agent', repo: '-', registry: 'Internal' } }
+           ]
+        },
+        {
+          id: 'comp-group-2', name: '组件', type: 'group',
+          children: [
+            { id: 'cmp-3', name: 'python3', type: 'comp', isAI: false, info: { version: '3.10.6', type: 'Runtime', vulnCount: 3, desc: 'Python Programming Language', system: 'web-prod-gateway', app: 'host-monitor', language: 'C/Python', license: 'PSF', homepage: 'https://www.python.org', repo: 'https://github.com/python/cpython', registry: 'PyPI' } },
+            { id: 'cmp-h1', name: 'psutil', type: 'comp', isAI: false, info: { version: '5.9.4', type: 'Library', vulnCount: 0, desc: 'Process and system utilities', system: 'web-prod-gateway', app: 'host-monitor', language: 'Python', license: 'BSD', homepage: 'https://github.com/giampaolo/psutil', repo: '-', registry: 'PyPI' } },
+            { id: 'cmp-h2', name: 'requests', type: 'comp', isAI: false, info: { version: '2.28.1', type: 'Library', vulnCount: 0, desc: 'HTTP library for Python', system: 'web-prod-gateway', app: 'host-monitor', language: 'Python', license: 'Apache-2.0', homepage: 'https://requests.readthedocs.io', repo: '-', registry: 'PyPI' } },
+            { id: 'cmp-h3', name: 'prometheus-client', type: 'comp', isAI: false, info: { version: '0.15.0', type: 'Library', vulnCount: 0, desc: 'Prometheus instrumentation library', system: 'web-prod-gateway', app: 'host-monitor', language: 'Python', license: 'Apache-2.0', homepage: '-', repo: '-', registry: 'PyPI' } },
+            { id: 'cmp-h4', name: 'pyyaml', type: 'comp', isAI: false, info: { version: '6.0.1', type: 'Library', vulnCount: 0, desc: 'YAML parser and emitter', system: 'web-prod-gateway', app: 'host-monitor', language: 'Python', license: 'MIT', homepage: '-', repo: '-', registry: 'PyPI' } },
+            { id: 'cmp-h5', name: 'click', type: 'comp', isAI: false, info: { version: '8.1.3', type: 'Library', vulnCount: 0, desc: 'Composable command line interface toolkit', system: 'web-prod-gateway', app: 'host-monitor', language: 'Python', license: 'BSD', homepage: '-', repo: '-', registry: 'PyPI' } },
+            { id: 'cmp-h6', name: 'six', type: 'comp', isAI: false, info: { version: '1.16.0', type: 'Library', vulnCount: 0, desc: 'Python 2 and 3 compatibility utilities', system: 'web-prod-gateway', app: 'host-monitor', language: 'Python', license: 'MIT', homepage: '-', repo: '-', registry: 'PyPI' } },
+            { id: 'cmp-h7', name: 'urllib3', type: 'comp', isAI: false, info: { version: '1.26.13', type: 'Library', vulnCount: 0, desc: 'HTTP client for Python', system: 'web-prod-gateway', app: 'host-monitor', language: 'Python', license: 'MIT', homepage: '-', repo: '-', registry: 'PyPI' } }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'sys-2', name: 'ai-inference-node', type: 'sys', ip: '192.168.1.11',
+      info: { 
+        hostname: 'ai-inference-node', 
+        ip: '192.168.1.11', 
+        ips: ['192.168.1.11'],
+        os: 'Linux', 
+        osVersion: '14.0.0', 
+        arch: 'amd64', 
+        distro: 'Ubuntu',
+        distroVersion: '22.04 LTS',
+        kernelVersion: '6.8.0-41-generic',
+        virtSystem: 'Bare Metal',
+        virtRole: 'Host',
+        uptime: '17天3小时',
+        processCount: 498,
+        zone: 'App', 
+        compCount: 256, 
+        vulnCount: 45, 
+        lastUpdate: '2026-03-07 09:15' 
+      },
+      children: [
+        {
+          id: 'app-3', name: 'llm-service', type: 'app',
+          info: { system: 'ai-inference-node', version: '0.9.2', compCount: 120, vulnCount: 20, container: '-', model: 'chatglm-6b', assetCount: 1, appPath: '/srv/llm-service' },
+          children: [
+             {
+               id: 'mod-1', name: 'chatglm-6b', type: 'model',
+               info: { system: 'ai-inference-node', version: 'v1', compCount: 10, vulnCount: 2, app: 'llm-service', assetCount: 0, modelPath: '/mnt/models/chatglm/chatglm-6b', modelFormat: 'safetensors', modelSize: '13.2 GB', modelType: '大语言模型', modelArch: 'ChatGLM', params: '6B' },
+               children: [
+                 { id: 'cmp-4', name: 'pytorch', type: 'comp', isAI: true, info: { version: '2.0.1', type: 'AI Framework', vulnCount: 2, desc: 'Tensors and Dynamic neural networks in Python', system: 'ai-inference-node', app: 'llm-service', model: 'chatglm-6b', language: 'Python/C++', license: 'BSD', homepage: 'https://pytorch.org', repo: 'https://github.com/pytorch/pytorch', registry: 'PyPI' } },
+                 { id: 'cmp-5', name: 'transformers', type: 'comp', isAI: true, info: { version: '4.30.0', type: 'AI Library', vulnCount: 0, desc: 'State-of-the-art Machine Learning for NLP/CV', system: 'ai-inference-node', app: 'llm-service', model: 'chatglm-6b', language: 'Python', license: 'Apache-2.0', homepage: 'https://huggingface.co/docs/transformers', repo: 'https://github.com/huggingface/transformers', registry: 'PyPI' } }
+               ]
+             },
+             { id: 'cmp-ai-1', name: 'vllm', type: 'comp', isAI: true, info: { version: '0.4.1', type: 'AI Inference Engine', vulnCount: 1, desc: '高吞吐量、高内存效率的大语言模型推理引擎', system: 'ai-inference-node', app: 'llm-service', model: '-', language: 'Python/CUDA', license: 'Apache-2.0', homepage: 'https://vllm.ai', repo: 'https://github.com/vllm-project/vllm', registry: 'PyPI' } },
+             { id: 'cmp-ai-2', name: 'accelerate', type: 'comp', isAI: true, info: { version: '0.29.3', type: 'AI Training Library', vulnCount: 0, desc: 'Hugging Face 分布式训练与混合精度加速库', system: 'ai-inference-node', app: 'llm-service', model: '-', language: 'Python', license: 'Apache-2.0', homepage: 'https://huggingface.co/docs/accelerate', repo: 'https://github.com/huggingface/accelerate', registry: 'PyPI' } }
+          ]
+        }
+      ]
+    }
+  ];
+
+  // 2. 渲染资产树
+  function renderTree(data, openSysId) {
+    const container = document.getElementById('assetTree');
+    container.innerHTML = '';
+    
+    function createNode(item, level) {
+      const el = document.createElement('div');
+      
+      // Node Header
+      const nodeHeader = document.createElement('div');
+      nodeHeader.className = 'tree-node';
+      nodeHeader.dataset.id = item.id;
+      nodeHeader.onclick = (e) => handleNodeClick(e, item, nodeHeader);
+      
+      // Toggle Icon
+      const toggle = document.createElement('i');
+      toggle.className = 'ri-arrow-right-s-line tree-toggle';
+      if (item.children && item.children.length > 0) {
+        toggle.onclick = (e) => {
+          e.stopPropagation();
+          toggleTree(toggle, childrenContainer);
+        };
+      } else {
+        toggle.style.opacity = '0';
+      }
+      nodeHeader.appendChild(toggle);
+
+      // Type Icon
+      const icon = document.createElement('i');
+      icon.className = `tree-icon ${item.type}`;
+      switch(item.type) {
+        case 'sys': icon.classList.add('ri-server-line'); break;
+        case 'container': icon.classList.add('ri-layout-grid-line'); break;
+        case 'app': icon.classList.add('ri-apps-line'); break;
+        case 'model': icon.classList.add('ri-brain-line'); break;
+        case 'comp': icon.classList.add('ri-code-box-line'); break;
+        case 'group': icon.classList.add('ri-code-box-line'); break;
+      }
+      nodeHeader.appendChild(icon);
+
+      // Label
+      const label = document.createElement('span');
+      label.className = 'tree-label';
+      label.innerHTML = item.name + (item.isAI ? ' <span class="ai-tag">AI</span>' : '');
+      nodeHeader.appendChild(label);
+
+      // Badge
+      if (item.type === 'sys') {
+         const badge = document.createElement('span');
+         badge.style.cssText = 'font-size:12px;color:var(--text-tertiary);margin-left:auto;padding-left:8px;font-family:var(--font-mono);';
+         badge.textContent = item.ip;
+         nodeHeader.appendChild(badge);
+      }
+
+      el.appendChild(nodeHeader);
+
+      // Children Container
+      let childrenContainer = null;
+      if (item.children && item.children.length > 0) {
+        childrenContainer = document.createElement('div');
+        childrenContainer.className = 'tree-children';
+        if (item.type === 'sys' && openSysId && item.id === openSysId) {
+          childrenContainer.classList.add('open');
+          toggle.classList.add('open');
+        }
+        item.children.forEach(child => {
+          childrenContainer.appendChild(createNode(child, level + 1));
+        });
+        el.appendChild(childrenContainer);
+      }
+
+      return el;
+    }
+
+    data.forEach(item => container.appendChild(createNode(item, 0)));
+  }
+
+  // 3. 树节点交互
+  function toggleTree(toggleEl, childrenEl) {
+    toggleEl.classList.toggle('open');
+    childrenEl.classList.toggle('open');
+  }
+
+  function handleNodeClick(e, item, element) {
+    // Update active style
+    document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('active'));
+    element.classList.add('active');
+    
+    // Render View
+    renderView(item);
+  }
+
+  function searchTree(keyword) {
+    // Simple filter implementation: hide nodes that don't match
+    const k = keyword.toLowerCase();
+    const nodes = document.querySelectorAll('.tree-node');
+    // Reset all
+    nodes.forEach(n => n.parentElement.style.display = 'block');
+    
+    if (!k) return;
+
+    // This is a simplified search that just hides non-matching root branches or specific nodes
+    // For a proper tree search, we'd need to traverse data and re-render or intelligently hide DOM
+    // For this demo, let's just re-render filtered data? No, structure is complex.
+    // Let's iterate visual nodes.
+    nodes.forEach(node => {
+      const text = node.innerText.toLowerCase();
+      if (!text.includes(k)) {
+        // Only hide if it's a leaf or matching logic... 
+        // Better: Expand all and highlight? 
+        // Let's implement data filtering for the root level to keep it simple and robust as per requirements "Support search by system name/IP"
+      }
+    });
+    
+    // Filter root data
+    const filtered = assetTreeData.filter(sys => 
+      sys.name.toLowerCase().includes(k) || (sys.ip && sys.ip.includes(k))
+    );
+    renderTree(filtered, filtered[0]?.id);
+  }
+
+  // 4. 右侧视图渲染逻辑
+  function drillDown(nodeId) {
+    const nodeDiv = document.querySelector(`.tree-node[data-id="${nodeId}"]`);
+    if (nodeDiv) {
+      // Open parents
+      let parent = nodeDiv.parentElement.parentElement; 
+      while (parent && parent.classList.contains('tree-children')) {
+         parent.classList.add('open');
+         const parentWrapper = parent.parentElement;
+         const parentToggle = parentWrapper.querySelector('.tree-toggle');
+         if (parentToggle) parentToggle.classList.add('open');
+         parent = parentWrapper.parentElement;
+      }
+      nodeDiv.click();
+      nodeDiv.scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+  }
+
+  // Helper for multi-IP toggle
+  function toggleIpList(ddId, ipsStr, zoneLabel) {
+    const dd = document.getElementById(ddId);
+    if (!dd) return;
+    if (!dd.dataset.prepared) {
+      const ips = ipsStr.split(',');
+      dd.innerHTML = ips.map((ip, idx) => `
+        <div class="dropdown-item">
+          <span class="mono" style="min-width:120px;">${ip}</span>
+          <span class="net-tag ${zoneLabel==='外网' ? 'external' : 'internal'}">${zoneLabel}</span>
+          ${idx===0?'<span class="badge badge-info" style="margin-left:auto;">主IP</span>':''}
+        </div>
+      `).join('');
+      dd.dataset.prepared = '1';
+    }
+    dd.classList.toggle('show');
+    setTimeout(() => document.addEventListener('click', () => dd.classList.remove('show'), {once:true}), 10);
+  }
+
+  function toggleImageTagList(ddId, tagsJson) {
+    const dd = document.getElementById(ddId);
+    if (!dd) return;
+    if (!dd.dataset.prepared) {
+      let tags = [];
+      try { tags = JSON.parse(decodeURIComponent(tagsJson)) || []; } catch (e) { tags = []; }
+      dd.innerHTML = tags.map((tag, idx) => `
+        <div class="dropdown-item">
+          <span class="mono" style="min-width:120px;">${tag}</span>
+          ${idx===0?'<span class="badge badge-info" style="margin-left:auto;">主标签</span>':''}
+        </div>
+      `).join('');
+      dd.dataset.prepared = '1';
+    }
+    dd.classList.toggle('show');
+    setTimeout(() => document.addEventListener('click', () => dd.classList.remove('show'), {once:true}), 10);
+  }
+
+  const ADAPTIVE_VISIBLE_ROWS = 2;
+  let adaptiveResizeTimer = null;
+  let adaptiveResizeBound = false;
+
+  function toggleAdaptiveFields(nodeId) {
+    const card = document.getElementById(`card-${nodeId}`);
+    if (!card) return;
+    const expanded = card.dataset.expanded === '1';
+    card.dataset.expanded = expanded ? '0' : '1';
+    applyAdaptiveCard(card);
+  }
+
+  function computeGridRowIndexMap(items) {
+    const rows = [];
+    const map = new Map();
+    items.forEach((el) => {
+      const top = el.offsetTop;
+      let rowIndex = rows.findIndex(rTop => Math.abs(rTop - top) <= 2);
+      if (rowIndex === -1) {
+        rows.push(top);
+        rowIndex = rows.length - 1;
+      }
+      map.set(el, rowIndex);
+    });
+    return map;
+  }
+
+  function applyAdaptiveCard(card) {
+    const nodeId = card.dataset.nodeId;
+    const grid = document.getElementById(`grid-${nodeId}`);
+    const row = document.getElementById(`afRow-${nodeId}`);
+    const btn = document.getElementById(`afBtn-${nodeId}`);
+    const icon = document.getElementById(`afIcon-${nodeId}`);
+    if (!grid || !row || !btn || !icon) return;
+
+    const onlyExpandEls = Array.from(grid.querySelectorAll('.only-expand'));
+    const expanded = card.dataset.expanded === '1';
+    const allFields = Array.from(grid.children).filter(el => el.classList && el.classList.contains('sf'));
+    const nonOnlyExpandFields = allFields.filter(el => !el.classList.contains('only-expand'));
+
+    nonOnlyExpandFields.forEach(el => { el.style.display = ''; });
+    if (expanded) onlyExpandEls.forEach(el => { el.style.display = ''; });
+    else onlyExpandEls.forEach(el => { el.style.display = 'none'; });
+
+    const rowIndexMap = computeGridRowIndexMap(nonOnlyExpandFields);
+    let maxRowIndex = 0;
+    nonOnlyExpandFields.forEach(el => {
+      const idx = rowIndexMap.get(el) ?? 0;
+      if (idx > maxRowIndex) maxRowIndex = idx;
+    });
+    const hasRowOverflow = (maxRowIndex + 1) > ADAPTIVE_VISIBLE_ROWS;
+    const hasOnlyExpand = onlyExpandEls.length > 0;
+    const shouldShowToggle = hasOnlyExpand || hasRowOverflow;
+
+    if (!shouldShowToggle) {
+      row.style.display = 'none';
+      btn.dataset.open = '0';
+      card.dataset.expanded = '0';
+      icon.style.transform = 'rotate(0deg)';
+      btn.title = '展开';
+      return;
+    }
+
+    row.style.display = 'flex';
+
+    if (!expanded) {
+      nonOnlyExpandFields.forEach(el => {
+        const idx = rowIndexMap.get(el) ?? 0;
+        el.style.display = idx >= ADAPTIVE_VISIBLE_ROWS ? 'none' : '';
+      });
+      btn.dataset.open = '0';
+      icon.style.transform = 'rotate(0deg)';
+      btn.title = '展开';
+    } else {
+      btn.dataset.open = '1';
+      icon.style.transform = 'rotate(180deg)';
+      btn.title = '收起';
+    }
+  }
+
+  function initAdaptiveFields(rootEl) {
+    if (!adaptiveResizeBound) {
+      adaptiveResizeBound = true;
+      window.addEventListener('resize', () => {
+        clearTimeout(adaptiveResizeTimer);
+        adaptiveResizeTimer = setTimeout(() => {
+          const panel = document.getElementById('viewPanel');
+          if (!panel) return;
+          initAdaptiveFields(panel);
+        }, 120);
+      });
+    }
+
+    const cards = rootEl.querySelectorAll('.system-summary-card[data-adaptive="1"]');
+    cards.forEach(card => applyAdaptiveCard(card));
+  }
+
+  function renderView(node) {
+    const panel = document.getElementById('viewPanel');
+    let html = '';
+
+    // Helpers
+    const escAttr = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const stripHtml = (s) => String(s ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g,' ').trim();
+    const infoRow = (label, val, isMono=false, color='', truncate=false, titleText='', wrapperClass='', wrapperStyle='', extraAttrs='') => {
+      const shouldTruncate = truncate || label === '组件首页' || label === '参考链接' || label === 'Package URL';
+      const title = titleText || stripHtml(val);
+      const titleAttr = title ? ` title="${escAttr(title)}"` : '';
+      const cls = wrapperClass ? ` ${wrapperClass}` : '';
+      const wStyle = wrapperStyle ? ` style="${escAttr(wrapperStyle)}"` : '';
+      const attrs = extraAttrs ? ` ${extraAttrs}` : '';
+      return `
+      <div class="sf${cls}"${wStyle}${attrs}>
+        <span class="sf-label">${label}</span>
+        <span class="sf-val ${isMono?'mono':''} ${shouldTruncate?'truncate':''}"${titleAttr} style="${color?'color:'+color:''}">${val}</span>
+      </div>`;
+    };
+    
+    // Risk Helper
+    const getRisk = (count) => {
+      if (count > 50) return { level: '严重', class: 'badge-critical' };
+      if (count > 20) return { level: '高危', class: 'badge-high' };
+      if (count > 5) return { level: '中危', class: 'badge-warning' };
+      return { level: '低危', class: 'badge-success' };
+    };
+
+    const risk = getRisk(node.info.vulnCount);
+
+    // Common List Renderers
+    const renderAssetList = (assets) => {
+      const rows = (assets && assets.length) ? assets.map(child => {
+        const childInfo = child.info || {};
+        const compCount = childInfo.compCount || 0;
+        const vulnCount = childInfo.vulnCount || 0;
+        return `
+                  <tr>
+                    <td><span class="fw-600">${child.name}</span></td>
+                    <td><span class="badge badge-info">${child.type === 'app' ? '应用' : (child.type === 'container' ? '容器' : '模型')}</span></td>
+                    <td class="mono">${compCount}</td>
+                    <td class="mono text-danger">${vulnCount}</td>
+                    <td class="mono text-xs">
+                       <span style="color:var(--purple)">${Math.ceil(vulnCount * 0.1)}</span> / 
+                       <span style="color:var(--danger)">${Math.ceil(vulnCount * 0.3)}</span> / 
+                       <span style="color:var(--warning)">${Math.ceil(vulnCount * 0.4)}</span> / 
+                       <span style="color:var(--success)">${Math.ceil(vulnCount * 0.2)}</span>
+                    </td>
+                    <td><button class="btn btn-ghost btn-xs" onclick="drillDown('${child.id}')">详情</button></td>
+                  </tr>
+                `;
+      }).join('') : `<tr><td colspan="6" class="text-center text-tertiary" style="padding:24px 16px;">暂无数据</td></tr>`;
+      return `
+        <div class="card">
+          <div class="card-header"><div class="card-title"><span class="card-title-bar blue"></span>资产列表</div></div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>资产名称</th><th>资产类型</th><th>组件数</th><th>漏洞总数</th><th>漏洞分布 (严/高/中/低)</th><th>操作</th></tr></thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    };
+
+    const renderCompList = (comps) => {
+      const rows = (comps && comps.length) ? comps.map(child => `
+                  <tr>
+                    <td><span class="fw-600">${child.name}</span></td>
+                    <td>${child.info.type||'-'}</td>
+                    <td class="mono">${child.info.version||'-'}</td>
+                    <td>${child.isAI ? '是' : '否'}</td>
+                    <td class="mono text-danger">${child.info.vulnCount||0}</td>
+                    <td class="mono text-xs">
+                       <span style="color:var(--purple)">${Math.ceil((child.info.vulnCount||0)*0.1)}</span> / 
+                       <span style="color:var(--danger)">${Math.ceil((child.info.vulnCount||0)*0.3)}</span> / 
+                       <span style="color:var(--warning)">${Math.ceil((child.info.vulnCount||0)*0.4)}</span> / 
+                       <span style="color:var(--success)">${Math.ceil((child.info.vulnCount||0)*0.2)}</span>
+                    </td>
+                    <td><button class="btn btn-ghost btn-xs" onclick="drillDown('${child.id}')">详情</button></td>
+                  </tr>
+                `).join('') : `<tr><td colspan="7" class="text-center text-tertiary" style="padding:24px 16px;">暂无数据</td></tr>`;
+      return `
+        <div class="card">
+          <div class="card-header"><div class="card-title"><span class="card-title-bar blue"></span>组件列表</div></div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>组件名称</th><th>组件类型</th><th>组件版本</th><th>是否为 AI 组件</th><th>漏洞总数</th><th>漏洞分布 (严/高/中/低)</th><th>操作</th></tr></thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+    };
+
+    // 1. System Node
+    if (node.type === 'sys') {
+      const assetChildren = (node.children || []).filter(c => c.type !== 'group');
+      // IP logic
+      const ips = node.info.ips || [node.info.ip];
+      const mainIp = ips[0];
+      const zoneLabel = node.info.zone === 'DMZ' ? '外网' : '内网';
+      const ddId = `ipdd-${node.id}`;
+      const ipHtml = `
+        <div class="dropdown" style="position:relative;display:inline-block;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span>${mainIp}</span>
+            <span class="badge badge-info" style="zoom:0.8">${zoneLabel}</span>
+            ${ips.length > 1 ? `<button class="btn btn-link btn-xs" onclick="event.stopPropagation();toggleIpList('${ddId}','${ips.join(',')}','${zoneLabel}')" style="padding:0;height:auto;"><i class="ri-more-2-line"></i></button>` : ''}
+          </div>
+          <div class="dropdown-menu" id="${ddId}"></div>
+        </div>`;
+
+      html += `
+        <div class="system-summary-card" id="card-${node.id}" data-adaptive="1" data-node-id="${node.id}" data-expanded="0">
+          <div class="ss-header">
+            <div class="ss-icon sys"><i class="ri-server-line"></i></div>
+            <div class="ss-head">
+              <div class="ss-title-row">
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);">${node.name}</div>
+                <span class="badge ${risk.class}">${risk.level}</span>
+              </div>
+              <div class="ss-metrics">
+                <span class="ss-metric"><span class="ss-metric-label">纳管资产数</span><span class="ss-metric-val mono">${assetChildren.length}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">组件总数</span><span class="ss-metric-val mono primary">${node.info.compCount}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">漏洞总数</span><span class="ss-metric-val mono danger">${node.info.vulnCount}</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="ss-divider"></div>
+          <div class="ss-grid" id="grid-${node.id}">
+            ${infoRow('关联主机名', node.info.hostname)}
+            ${infoRow('关联主机 IP', ipHtml)}
+            ${infoRow('操作系统', node.info.os || '-')}
+            ${infoRow('系统版本', node.info.osVersion || '-')}
+            ${infoRow('CPU架构', node.info.arch || '-')}
+            ${infoRow('发行版', node.info.distro || '-')}
+            ${infoRow('发行版版本', node.info.distroVersion || '-')}
+            ${infoRow('内核版本', node.info.kernelVersion || '-')}
+            ${infoRow('虚拟化系统', node.info.virtSystem || '-')}
+            ${infoRow('虚拟化角色', node.info.virtRole || '-')}
+            ${infoRow('运行时长', node.info.uptime || '-')}
+            ${infoRow('进程数', node.info.processCount ?? '-', true)}
+          </div>
+          <div class="ss-extra-toggle-row" id="afRow-${node.id}" style="display:none;">
+            <button class="ss-extra-toggle-btn" id="afBtn-${node.id}" data-open="0" onclick="toggleAdaptiveFields('${node.id}')" title="展开">
+              <i class="ri-arrow-down-s-line" id="afIcon-${node.id}"></i>
+            </button>
+          </div>
+        </div>
+        ${renderAssetList(assetChildren)}
+      `;
+    } 
+    // 3. Container Node
+    else if (node.type === 'container') {
+      const assetChildren = (node.children || []).filter(c => c.type !== 'comp');
+      const compChildren = (node.children || []).filter(c => c.type === 'comp');
+      const tags = Array.isArray(node.info.imageTags) && node.info.imageTags.length ? node.info.imageTags : (node.info.image ? [node.info.image] : []);
+      const primaryTag = tags[0] || '-';
+      const tagsJson = encodeURIComponent(JSON.stringify(tags));
+      const imddId = `imdd-${node.id}`;
+      const imageTagHtml = `
+        <div class="dropdown" style="position:relative;display:inline-block;min-width:180px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="mono">${primaryTag}</span>
+            ${tags.length > 1 ? `<button class="btn btn-link btn-xs" onclick="event.stopPropagation();toggleImageTagList('${imddId}','${tagsJson}')" style="padding:0;height:auto;"><i class="ri-more-2-line"></i></button>` : ''}
+          </div>
+          <div class="dropdown-menu" id="${imddId}"></div>
+        </div>`;
+
+      html += `
+        <div class="system-summary-card" id="card-${node.id}" data-adaptive="1" data-node-id="${node.id}" data-expanded="0">
+          <div class="ss-header">
+            <div class="ss-icon container"><i class="ri-layout-grid-line"></i></div>
+            <div class="ss-head">
+              <div class="ss-title-row">
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);">${node.name}</div>
+                <span class="badge ${risk.class}">${risk.level}</span>
+              </div>
+              <div class="ss-metrics">
+                <span class="ss-metric"><span class="ss-metric-label">纳管资产数</span><span class="ss-metric-val mono">${assetChildren.length}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">组件总数</span><span class="ss-metric-val mono primary">${node.info.compCount}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">漏洞总数</span><span class="ss-metric-val mono danger">${node.info.vulnCount}</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="ss-divider"></div>
+          <div class="ss-grid" id="grid-${node.id}">
+            ${infoRow('所属资产', node.info.system)}
+            ${infoRow('镜像标签', imageTagHtml, false, '', false, primaryTag)}
+            ${infoRow('镜像大小', `${node.info.imageSizeMB ?? '-'}${node.info.imageSizeMB!=null?' MB':''}`, true)}
+            ${infoRow('创建时间', node.info.createdAt || '-', true)}
+            ${infoRow('操作系统', node.info.os || '-')}
+            ${infoRow('架构', node.info.arch || '-', true)}
+            ${infoRow('发行版', node.info.distro || '-')}
+            ${infoRow('发行版版本', node.info.distroVersion || '-', true)}
+          </div>
+          <div class="ss-extra-toggle-row" id="afRow-${node.id}" style="display:none;">
+            <button class="ss-extra-toggle-btn" id="afBtn-${node.id}" data-open="0" onclick="toggleAdaptiveFields('${node.id}')" title="展开">
+              <i class="ri-arrow-down-s-line" id="afIcon-${node.id}"></i>
+            </button>
+          </div>
+        </div>
+        ${renderAssetList(assetChildren)}
+        ${renderCompList(compChildren)}
+      `;
+    }
+    // 2 & 4. App Node (With or Without Container) or Model
+    else if (node.type === 'app') {
+      const hasContainer = node.info.container && node.info.container !== '-';
+      const assetChildren = (node.children || []).filter(c => c.type !== 'comp' && c.type !== 'group');
+      const compChildren = (node.children || []).filter(c => c.type === 'comp');
+      const showAssetList = assetChildren.length > 0;
+
+      html += `
+        <div class="system-summary-card" id="card-${node.id}" data-adaptive="1" data-node-id="${node.id}" data-expanded="0">
+          <div class="ss-header">
+            <div class="ss-icon app"><i class="ri-apps-line"></i></div>
+            <div class="ss-head">
+              <div class="ss-title-row">
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);">${node.name}</div>
+                <span class="badge ${risk.class}">${risk.level}</span>
+              </div>
+              <div class="ss-metrics">
+                <span class="ss-metric"><span class="ss-metric-label">关联资产数</span><span class="ss-metric-val mono">${assetChildren.length}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">组件总数</span><span class="ss-metric-val mono primary">${node.info.compCount}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">漏洞总数</span><span class="ss-metric-val mono danger">${node.info.vulnCount}</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="ss-divider"></div>
+          <div class="ss-grid" id="grid-${node.id}">
+            ${hasContainer ? infoRow('所属资产', node.info.container) : infoRow('所属资产', node.info.system)}
+            ${infoRow('应用路径', node.info.appPath || '-', true, '', true, node.info.appPath || '-')}
+          </div>
+          <div class="ss-extra-toggle-row" id="afRow-${node.id}" style="display:none;">
+            <button class="ss-extra-toggle-btn" id="afBtn-${node.id}" data-open="0" onclick="toggleAdaptiveFields('${node.id}')" title="展开">
+              <i class="ri-arrow-down-s-line" id="afIcon-${node.id}"></i>
+            </button>
+          </div>
+        </div>
+        ${showAssetList ? renderAssetList(assetChildren) : ''}
+        ${renderCompList(compChildren)}
+      `;
+    }
+    else if (node.type === 'group') {
+      const compChildren = (node.children || []).filter(c => c.type === 'comp');
+      html += `
+        <div class="page-header" style="margin-bottom:12px;">
+          <div>
+            <div class="page-title" style="font-size:18px;">${node.name}</div>
+            <div class="page-desc">共计 ${compChildren.length} 个组件</div>
+          </div>
+        </div>
+        ${renderCompList(compChildren)}
+      `;
+    }
+    else if (node.type === 'model') {
+      const compChildren = (node.children || []).filter(c => c.type === 'comp');
+
+      html += `
+        <div class="system-summary-card" id="card-${node.id}" data-adaptive="1" data-node-id="${node.id}" data-expanded="0">
+          <div class="ss-header">
+            <div class="ss-icon app"><i class="ri-apps-line"></i></div>
+            <div class="ss-head">
+              <div class="ss-title-row">
+                <div style="font-size:16px;font-weight:700;color:var(--text-primary);">${node.name}</div>
+                <span class="badge ${risk.class}">${risk.level}</span>
+              </div>
+              <div class="ss-metrics">
+                <span class="ss-metric"><span class="ss-metric-label">关联资产数</span><span class="ss-metric-val mono">${node.info.assetCount ?? 0}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">组件总数</span><span class="ss-metric-val mono primary">${node.info.compCount}</span></span>
+                <span class="ss-metric-sep">｜</span>
+                <span class="ss-metric"><span class="ss-metric-label">漏洞总数</span><span class="ss-metric-val mono danger">${node.info.vulnCount}</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="ss-divider"></div>
+          <div class="ss-grid" id="grid-${node.id}">
+            ${infoRow('所属资产', node.info.app || 'llm-service')}
+            ${infoRow('模型路径', node.info.modelPath || '-', true, '', true, node.info.modelPath || '-')}
+            ${infoRow('模型格式', node.info.modelFormat || '-')}
+            ${infoRow('模型大小', node.info.modelSize || '-', true)}
+            ${infoRow('模型类型', node.info.modelType || '-')}
+            ${infoRow('模型架构', node.info.modelArch || '-')}
+            ${infoRow('参数量', node.info.params || '-', true)}
+          </div>
+          <div class="ss-extra-toggle-row" id="afRow-${node.id}" style="display:none;">
+            <button class="ss-extra-toggle-btn" id="afBtn-${node.id}" data-open="0" onclick="toggleAdaptiveFields('${node.id}')" title="展开">
+              <i class="ri-arrow-down-s-line" id="afIcon-${node.id}"></i>
+            </button>
+          </div>
+        </div>
+        ${renderCompList(compChildren)}
+      `;
+    }
+    // 5. Component Node
+    else if (node.type === 'comp') {
+      const licenseAll = node.info.license || '-';
+      const licensePrimary = (licenseAll.split(',')[0] || '-').trim() || '-';
+      const homepageVal = `<a href="${node.info.homepage}" target="_blank" style="color:var(--primary)" title="${node.info.homepage}">${node.info.homepage}</a>`;
+      const refLinkVal = `<a href="https://gitlab.com/libtiff/libtiff" target="_blank" style="color:var(--primary)" title="https://gitlab.com/libtiff/libtiff">https://gitlab.com/libtiff/libtiff</a>`;
+      const compBaseFields = [
+        { label: '组件类型', val: node.info.type, isMono: false, color: '', truncate: false, title: node.info.type },
+        { label: '组件版本', val: node.info.version, isMono: true, color: '', truncate: false, title: node.info.version },
+        { label: '编程语言', val: node.info.language || '-', isMono: false, color: '', truncate: false, title: node.info.language || '-' },
+        { label: '组件厂商', val: 'libtiff', isMono: false, color: '', truncate: false, title: 'libtiff' },
+        { label: 'Package URL', val: 'pkg:brew/libtiff@4.7.0', isMono: true, color: '', truncate: true, title: 'pkg:brew/libtiff@4.7.0' }
+      ];
+      const compHasExtra = !!(node.info.desc && node.info.desc !== '-');
+      html += `
+        <div class="system-summary-card" id="card-${node.id}" data-adaptive="1" data-node-id="${node.id}" data-expanded="0">
+          <div class="ss-header">
+            <div class="ss-icon comp"><i class="ri-code-box-line"></i></div>
+            <div class="ss-head" style="flex:1;">
+              <div class="ss-title-row" style="justify-content:space-between;">
+                <div class="flex items-center gap-8">
+                  <div style="font-size:16px;font-weight:700;color:var(--text-primary);">${node.name} ${node.isAI?'<span class="ai-tag">AI</span>':''}</div>
+                  <span class="badge ${risk.class}">${risk.level}</span>
+                </div>
+                <div class="flex items-center gap-8">
+                  <span class="badge badge-info" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;" onclick="showLicensePopover(event,'${licenseAll}')"><i class="ri-file-text-line"></i>许可证 ${licensePrimary} <i class="ri-add-line"></i></span>
+                </div>
+              </div>
+              <div class="ss-metrics">
+                <span class="ss-metric"><span class="ss-metric-label">漏洞总数</span><span class="ss-metric-val mono danger">${node.info.vulnCount}</span></span>
+              </div>
+            </div>
+          </div>
+          <div class="ss-divider"></div>
+          <div class="ss-grid" id="grid-${node.id}">
+            ${compBaseFields.map(f => infoRow(f.label, f.val, !!f.isMono, f.color || '', !!f.truncate, f.title || '')).join('')}
+            ${infoRow('参考链接', refLinkVal, false, '', true, 'https://gitlab.com/libtiff/libtiff')}
+            ${infoRow('组件首页', homepageVal, false, '', true, node.info.homepage)}
+            ${compHasExtra ? infoRow('组件描述', node.info.desc || '-', false, '', true, node.info.desc || '-', 'only-expand sf-wide', 'display:none;border-top:1px dashed var(--border-color); padding-top:8px; margin-top:12px;') : ''}
+          </div>
+          <div class="ss-extra-toggle-row" id="afRow-${node.id}" style="display:none;">
+            <button class="ss-extra-toggle-btn" id="afBtn-${node.id}" data-open="0" onclick="toggleAdaptiveFields('${node.id}')" title="展开">
+              <i class="ri-arrow-down-s-line" id="afIcon-${node.id}"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title"><span class="card-title-bar red"></span>漏洞列表</div></div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>CVE 编号</th><th>漏洞名称</th><th>等级</th><th>CVSS</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td class="mono fw-600" style="color:var(--primary)">CVE-2024-21762</td>
+                  <td>Fortinet FortiOS 越界写入漏洞</td>
+                  <td><span class="badge badge-critical">严重</span></td>
+                  <td class="mono">9.8</td>
+                  <td><button class="btn btn-ghost btn-xs" onclick="viewVuln('CVE-2024-21762')">详情</button></td>
+                </tr>
+                <tr>
+                  <td class="mono fw-600" style="color:var(--primary)">CVE-2024-6387</td>
+                  <td>OpenSSH regreSSHion 远程代码执行漏洞</td>
+                  <td><span class="badge badge-critical">严重</span></td>
+                  <td class="mono">9.8</td>
+                  <td><button class="btn btn-ghost btn-xs" onclick="viewVuln('CVE-2024-6387')">详情</button></td>
+                </tr>
+                <tr>
+                  <td class="mono fw-600" style="color:var(--primary)">CVE-2024-47176</td>
+                  <td>CUPS 远程代码执行漏洞</td>
+                  <td><span class="badge badge-high">高危</span></td>
+                  <td class="mono">8.6</td>
+                  <td><button class="btn btn-ghost btn-xs" onclick="viewVuln('CVE-2024-47176')">详情</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    panel.innerHTML = html;
+    initAdaptiveFields(panel);
+  }
+
+  // Init
+  function resetTree() {
+    document.getElementById('treeSearchInput').value = '';
+    const firstId = assetTreeData[0]?.id;
+    renderTree(assetTreeData, firstId);
+    setTimeout(() => {
+      const firstNode = document.querySelector(`.tree-node[data-id="${firstId}"]`);
+      if(firstNode) firstNode.click();
+    }, 50);
+  }
+  renderTree(assetTreeData, assetTreeData[0]?.id);
+  setTimeout(() => {
+    const firstNode = document.querySelector(`.tree-node[data-id="${assetTreeData[0]?.id}"]`);
+    if(firstNode) firstNode.click();
+  }, 80);
+
+  function toggleDropdown(id) {
+    const dd = document.getElementById(id);
+    dd.classList.toggle('show');
+    setTimeout(() => document.addEventListener('click', () => dd.classList.remove('show'), {once:true}), 10);
+  }
+  function exportBOM(fmt) { alert('正在导出 ' + fmt.toUpperCase() + ' 格式 BOM...'); }
+  
+  // Vulnerability Data (Subset for Demo)
+  const vulnData = {
+    'CVE-2024-21762': { 
+      cve:'CVE-2024-21762', name:'Fortinet FortiOS 越界写入漏洞', severity:'严重', badgeClass:'badge-critical',
+      cvss:9.8, cvssVector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', cwe:'CWE-787,CWE-125',
+      scope:'FortiOS 7.4.0 - 7.4.2, FortiOS 7.2.0 - 7.2.6', solution:'升级至 FortiOS 7.4.3 或 7.2.7 以上版本',
+      detail:'Fortinet FortiOS SSL VPN 组件中存在越界写入漏洞，未经身份验证的远程攻击者可通过特制的HTTP请求触发该漏洞，在目标系统上执行任意代码或命令。该漏洞已被观测到在野利用。',
+      link:'https://www.fortiguard.com/psirt/FG-IR-24-015', publishDate:'2024-02-09',
+      cnvd:'CNVD-2024-01456', cnnvd:'CNNVD-202402-1234', epss:0.973, riskScore:96, harm:'远程代码执行',
+      hasPoc:true, hasExp:true,
+      pocs:[
+        { name:'Fortinet FortiOS - Out-of-Bound Write', engine:'Nuclei', language:'YAML', ref:'https://github.com/projectdiscovery/nuclei-templates', code:'id: CVE-2024-21762\ninfo:\n  name: Fortinet FortiOS - Out-of-Bound Write\n  severity: critical\n  tags: cve,cve2024,fortinet,rce\n\nhttp:\n  - raw:\n      - |\n        GET /remote/hostcheck_validate HTTP/1.1\n        Host: {{Hostname}}' },
+        { name:'FortiOS SSL VPN RCE Checker', engine:'Nuclei', language:'YAML', ref:'https://www.fortiguard.com/psirt/FG-IR-24-015', code:'id: fortios-ssl-vpn-rce-check\ninfo:\n  name: FortiOS SSL VPN RCE - Simple Check\n  severity: critical\n\nhttp:\n  - method: GET\n    path:\n      - \"{{BaseURL}}/remote/hostcheck_validate\"' }
+      ],
+      exps:[
+        { name:'Metasploit Ruby Module', engine:'Metasploit', language:'Ruby', ref:'https://www.fortiguard.com/psirt/FG-IR-24-015', code:'class MetasploitModule < Msf::Exploit::Remote\n  Rank = ExcellentRanking\n  include Msf::Exploit::Remote::HttpClient\n\n  def initialize(info = {})\n    super(update_info(info,\n      \'Name\' => \'Fortinet FortiOS OOB Write RCE\'\n    ))\n  end\n\n  def exploit\n    send_request_cgi({ \'method\' => \'GET\', \'uri\' => \'/remote/hostcheck_validate\' })\n  end\nend' }
+      ],
+      expCode:'class MetasploitModule < Msf::Exploit::Remote\n  Rank = ExcellentRanking\n  include Msf::Exploit::Remote::HttpClient\n\n  def initialize(info = {})\n    super(update_info(info,\n      \'Name\' => \'Fortinet FortiOS OOB Write RCE\'\n    ))\n  end\n\n  def exploit\n    send_request_cgi({ \'method\' => \'GET\', \'uri\' => \'/remote/hostcheck_validate\' })\n  end\nend',
+      repo:{ name:'fortios-cve-2024-21762-poc', url:'https://github.com/secresearch/fortios-cve-2024-21762-poc', created:'2024-02-15', stars:487, tags:['fortinet','rce','oob-write','cve-2024'], desc:'FortiOS SSL VPN CVE-2024-21762 越界写入漏洞 POC 及利用工具集合。' },
+      assets:[{name:'web-prod-gateway',type:'系统',components:3,host:'fw-prod-01',ip:'192.168.1.10'},{name:'vpn-edge-node',type:'系统',components:2,host:'fw-edge-01',ip:'10.0.1.5'}],
+      components:[{name:'FortiOS SSL VPN',type:'系统组件',version:'7.4.1',system:'web-prod-gateway',host:'fw-prod-01',ip:'192.168.1.10'},{name:'FortiOS SSL VPN',type:'系统组件',version:'7.2.5',system:'vpn-edge-node',host:'fw-edge-01',ip:'10.0.1.5'}]
+    },
+    'CVE-2024-6387': {
+       cve:'CVE-2024-6387', name:'OpenSSH regreSSHion 远程代码执行漏洞', severity:'严重', badgeClass:'badge-critical',
+       cvss:9.8, cvssVector:'CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H', cwe:'CWE-362,CWE-367',
+       scope:'OpenSSH 8.5p1 - 9.7p1 (glibc-based Linux)', solution:'升级 OpenSSH 至 9.8p1 或更高版本',
+       detail:'OpenSSH 服务端 sshd 中存在信号处理器竞争条件漏洞，未经身份验证的远程攻击者可利用该漏洞以root权限执行任意代码。该漏洞是 CVE-2006-5051 的回归问题。',
+       link:'https://www.qualys.com/2024/07/01/cve-2024-6387/regresshion.txt', publishDate:'2024-07-01',
+       cnvd:'CNVD-2024-07231', cnnvd:'CNNVD-202407-0456', epss:0.812, riskScore:93, harm:'远程代码执行（root）',
+       hasPoc:true, hasExp:false,
+       pocs:[
+         { name:'OpenSSH regreSSHion - Version Detection', engine:'Nuclei', language:'YAML', ref:'https://github.com/projectdiscovery/nuclei-templates', code:'id: CVE-2024-6387\ninfo:\n  name: OpenSSH regreSSHion - Version Detection\n  severity: critical\n  tags: cve,cve2024,openssh,rce\n\nnetwork:\n  - host:\n      - \"{{Hostname}}\"\n    port: 22\n    matchers:\n      - type: regex\n        regex:\n          - \"OpenSSH_([89]\\\\.[5-9]|9\\\\.[0-7])p\"' }
+       ],
+       expCode:null,
+      repo:{ name:'regresshion-checker', url:'https://github.com/qualys/regresshion-checker', created:'2024-07-01', stars:1876, tags:['openssh','rce','race-condition'], desc:'OpenSSH regreSSHion (CVE-2024-6387) 漏洞检测工具，支持批量扫描和版本识别。' },
+      assets:[{name:'web-prod-01',type:'系统',components:8,host:'web-prod-01',ip:'10.10.1.15'},{name:'db-master-01',type:'系统',components:5,host:'db-master-01',ip:'10.10.2.30'}],
+      components:[{name:'OpenSSH',type:'系统组件',version:'9.3p1',system:'web-prod-01',host:'web-prod-01',ip:'10.10.1.15'},{name:'OpenSSH',type:'系统组件',version:'8.9p1',system:'db-master-01',host:'db-master-01',ip:'10.10.2.30'}]
+    },
+    'CVE-2024-47176': {
+      cve:'CVE-2024-47176', name:'CUPS 远程代码执行漏洞', severity:'高危', badgeClass:'badge-high',
+      cvss:8.6, cvssVector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:H/A:N', cwe:'CWE-77,CWE-78',
+      scope:'cups-browsed <= 2.0.1', solution:'禁用 cups-browsed 服务或升级至修复版本',
+      detail:'CUPS 打印系统的 cups-browsed 组件存在远程代码执行漏洞，攻击者可通过发送恶意UDP数据包至631端口，添加恶意打印机并在用户执行打印操作时触发命令执行。',
+      link:'https://www.evilsocket.net/2024/09/26/Attacking-UNIX-systems-via-CUPS-Part-I/', publishDate:'2024-09-27',
+      cnvd:'CNVD-2024-20145', cnnvd:'CNNVD-202409-0789', epss:0.456, riskScore:82, harm:'远程命令执行',
+      hasPoc:true, hasExp:true,
+      pocs:[
+        { name:'CUPS cups-browsed RCE PoC', engine:'PoC Script', language:'Shell', ref:'https://www.evilsocket.net/2024/09/26/Attacking-UNIX-systems-via-CUPS-Part-I/', code:'# CUPS RCE POC\nid: CVE-2024-47176' }
+      ],
+      exps:[
+        { name:'Metasploit Ruby Module', engine:'Metasploit', language:'Ruby', ref:'https://github.com/rapid7/metasploit-framework', code:'# Metasploit module stub\nclass MetasploitModule; end' }
+      ],
+      expCode:'# Metasploit module stub\nclass MetasploitModule; end',
+      repo:{ name:'cups-rce-exploit', url:'https://github.com/evilsocket/cups-rce', created:'2024-09-26', stars:956, tags:['cups','rce','linux'], desc:'CUPS cups-browsed CVE-2024-47176 远程代码执行漏洞利用工具。' },
+      assets:[{name:'print-server-01',type:'系统',components:4,host:'print-srv-01',ip:'10.10.5.20'}],
+      components:[{name:'cups-browsed',type:'系统服务',version:'2.0.0',system:'print-server-01',host:'print-srv-01',ip:'10.10.5.20'}]
+    }
+  };
+
+  const repoListFromImage = [
+    {
+      name: 'CVE-2026-21445-PoC',
+      url: 'https://github.com/chinaxploiter/CVE-2026-21445-PoC',
+      createdAt: '2026-01-04 12:12:20',
+      updatedAt: '2026-01-04 12:12:20',
+      pushedAt: '2026-01-04 12:12:20',
+      watchers: 123,
+      topic: 'cve-2026-21445',
+      description: 'Academic proof-of-concept demonstrating CVE-2026-21445 [LangFlow] for authorized security research.'
+    },
+    {
+      name: 'LangFlow Security Research',
+      url: 'https://github.com/langflow-ai/langflow',
+      createdAt: '2024-06-10 09:13:02',
+      updatedAt: '2026-03-20 18:44:10',
+      pushedAt: '2026-03-22 07:12:55',
+      watchers: 5412,
+      topic: 'langflow',
+      description: 'LangFlow official repository for build and deployment.'
+    }
+  ];
+
+  function escHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+  }
+
+  function normalizeAssetType(type) {
+    const v = (type == null ? '' : String(type)).trim();
+    if (v === '系统' || v === '应用' || v === '容器' || v === '模型') return v;
+    if (v === '服务器' || v === '工作站') return '系统';
+    return '系统';
+  }
+
+  function viewVuln(cveId) {
+    const d = vulnData[cveId];
+    if (!d) return;
+    const getScoreClass = (sev) => ({'严重':'critical','高危':'high','中危':'medium','低危':'low'}[sev]||'');
+    const cweText = (() => {
+      if (Array.isArray(d.cwe)) return d.cwe.map(x => String(x).trim()).filter(Boolean).join(',');
+      const raw = String(d.cwe ?? '').trim();
+      if (!raw) return '-';
+      if (raw.includes(',')) return raw.split(',').map(x => String(x).trim()).filter(Boolean).join(',');
+      return raw.split(/\s+/)[0] || raw;
+    })();
+    document.getElementById('spTitle').innerHTML =
+      `<div class="sp-title-group"><span class="sp-cve">${d.cve}</span><span class="badge ${d.badgeClass}">${d.severity}</span></div>`;
+    let html = '';
+    html += '<div class="info-section"><div class="info-section-title">基础信息</div>';
+    html += '<table class="kv-table">';
+    html += `<tr><th>漏洞名称</th><td>${d.name}</td></tr>`;
+    html += `<tr><th>CNVD 编号</th><td class="mono text-xs">${d.cnvd || '-'}</td></tr>`;
+    html += `<tr><th>CNNVD 编号</th><td class="mono text-xs">${d.cnnvd || '-'}</td></tr>`;
+    html += `<tr><th>漏洞发布时间</th><td class="mono text-xs">${d.publishDate || '-'}</td></tr>`;
+    html += `<tr><th>CVSS 评分</th><td><span class="cvss-score ${getScoreClass(d.severity)}">${d.cvss.toFixed(1)}</span></td></tr>`;
+    html += `<tr><th>CVSS 向量</th><td><span class="mono text-xs text-secondary">${d.cvssVector}</span></td></tr>`;
+    html += `<tr><th>风险分数</th><td class="mono">${d.riskScore != null ? d.riskScore : '-'}</td></tr>`;
+    html += `<tr><th>EPSS 评分</th><td class="mono">${d.epss != null ? Number(d.epss).toFixed(3) : '-'}</td></tr>`;
+    html += `<tr><th>CWE 编号</th><td class="mono text-xs">${cweText || '-'}</td></tr>`;
+    html += `<tr><th>漏洞危害</th><td>${d.harm || '-'}</td></tr>`;
+    html += `<tr><th>查看链接</th><td><a href="${d.link}" target="_blank" style="word-break:break-all;color:var(--primary);">${d.link}</a></td></tr>`;
+    html += `<tr><th>解决方案</th><td>${d.solution}</td></tr>`;
+    html += `<tr><th>漏洞详情</th><td style="line-height:1.7;">${d.detail}</td></tr>`;
+    html += '</table></div>';
+    html += '<div class="info-section"><div class="info-section-title">关联POC信息</div>';
+    const pocs = Array.isArray(d.pocs) ? d.pocs : (d.pocCode ? [{
+      name: d.pocName || 'POC',
+      engine: d.pocEngine || '-',
+      language: d.pocLanguage || '-',
+      ref: d.pocRef || '-',
+      code: d.pocCode
+    }] : []);
+    const hasPoc = (d.hasPoc && pocs.length > 0) || pocs.length > 0;
+    if (hasPoc) {
+      html += pocs.map((p, idx) => {
+        const name = p?.name || `POC-${idx + 1}`;
+        const engine = p?.engine || '-';
+        const lang = p?.language || '-';
+        const ref = p?.ref || '-';
+        const code = p?.code || '';
+        const refHtml = ref === '-' ? '-' : `<a href="${ref}" target="_blank" style="word-break:break-all;color:var(--primary);">${ref}</a>`;
+        return `
+          <div class="collapse-section">
+            <div class="collapse-header" onclick="toggleCollapse(this)">
+              <span><i class="ri-file-list-2-line" style="color:var(--primary);margin-right:6px;"></i>${name}</span>
+              <i class="ri-arrow-right-s-line collapse-icon"></i>
+            </div>
+            <div class="collapse-body">
+              <table class="kv-table" style="table-layout:fixed;width:100%;">
+                <tbody>
+                  <tr><th>执行引擎</th><td>${engine}</td></tr>
+                  <tr><th>编程语言</th><td>${lang}</td></tr>
+                  <tr><th>参考链接</th><td>${refHtml}</td></tr>
+                  <tr>
+                    <th>POC内容</th>
+                    <td>
+                      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)"><i class="ri-file-copy-line"></i> 复制</button>${escHtml(code)}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      html += '<div class="empty-state"><i class="ri-file-unknow-line empty-icon"></i><div class="empty-text">暂无关联POC信息</div></div>';
+    }
+    html += '</div>';
+    html += '<div class="info-section"><div class="info-section-title">关联EXP信息</div>';
+    const exps = Array.isArray(d.exps) ? d.exps : (d.expCode ? [{
+      name: 'EXP',
+      engine: '-',
+      language: '-',
+      ref: '-',
+      code: d.expCode
+    }] : []);
+    const hasExp = (d.hasExp && exps.length > 0) || exps.length > 0;
+    if (hasExp) {
+      html += exps.map((e, idx) => {
+        const name = e?.name || `EXP-${idx + 1}`;
+        const engine = e?.engine || '-';
+        const lang = e?.language || '-';
+        const ref = e?.ref || '-';
+        const code = e?.code || '';
+        const refHtml = ref === '-' ? '-' : `<a href="${ref}" target="_blank" style="word-break:break-all;color:var(--primary);">${ref}</a>`;
+        return `
+          <div class="collapse-section">
+            <div class="collapse-header" onclick="toggleCollapse(this)">
+              <span><i class="ri-terminal-box-line" style="color:var(--danger);margin-right:6px;"></i>${name}</span>
+              <i class="ri-arrow-right-s-line collapse-icon"></i>
+            </div>
+            <div class="collapse-body">
+              <table class="kv-table" style="table-layout:fixed;width:100%;">
+                <tbody>
+                  <tr><th>执行引擎</th><td>${engine}</td></tr>
+                  <tr><th>编程语言</th><td>${lang}</td></tr>
+                  <tr><th>参考链接</th><td>${refHtml}</td></tr>
+                  <tr>
+                    <th>EXP内容</th>
+                    <td>
+                      <div class="code-block"><button class="copy-btn" onclick="copyCode(this)"><i class="ri-file-copy-line"></i> 复制</button>${escHtml(code)}</div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      html += '<div class="empty-state"><i class="ri-file-unknow-line empty-icon"></i><div class="empty-text">暂无关联EXP信息</div></div>';
+    }
+    html += '</div>';
+    html += '<div class="info-section"><div class="info-section-title">关联仓库信息</div>';
+    const repos = Array.isArray(d.repos) ? d.repos : repoListFromImage;
+    const hasRepo = repos && repos.length > 0;
+    if (hasRepo) {
+      html += repos.map((r, idx) => {
+        const name = r?.name || `仓库-${idx + 1}`;
+        const url = r?.url || '-';
+        const createdAt = r?.createdAt || '-';
+        const updatedAt = r?.updatedAt || '-';
+        const pushedAt = r?.pushedAt || '-';
+        const watchers = r?.watchers ?? '-';
+        const topic = r?.topic || '-';
+        const description = r?.description || '-';
+        const urlHtml = url === '-' ? '-' : `<a href="${url}" target="_blank" style="word-break:break-all;color:var(--primary);">${url}</a>`;
+        return `
+          <div class="collapse-section">
+            <div class="collapse-header" onclick="toggleCollapse(this)">
+              <span><i class="ri-github-fill" style="color:var(--primary);margin-right:6px;"></i>${escHtml(name)}</span>
+              <i class="ri-arrow-right-s-line collapse-icon"></i>
+            </div>
+            <div class="collapse-body">
+              <table class="kv-table" style="table-layout:fixed;width:100%;">
+                <tbody>
+                  <tr><th>仓库地址</th><td>${urlHtml}</td></tr>
+                  <tr><th>创建时间</th><td class="mono text-xs">${escHtml(String(createdAt))}</td></tr>
+                  <tr><th>更新时间</th><td class="mono text-xs">${escHtml(String(updatedAt))}</td></tr>
+                  <tr><th>推送时间</th><td class="mono text-xs">${escHtml(String(pushedAt))}</td></tr>
+                  <tr><th>关注数量</th><td class="mono">${escHtml(String(watchers))}</td></tr>
+                  <tr><th>主题</th><td>${escHtml(String(topic))}</td></tr>
+                  <tr><th>描述</th><td style="line-height:1.7;">${escHtml(String(description))}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      html += '<div class="empty-state"><i class="ri-file-unknow-line empty-icon"></i><div class="empty-text">暂无关联仓库信息</div></div>';
+    }
+    html += '</div>';
+    html += '<div class="info-section"><div class="info-section-title">影响资产信息 <span class="text-xs text-tertiary ml-4">(' + (d.assets||[]).length + ')</span></div>';
+    html += '<table class="sp-table"><thead><tr><th>资产名称</th><th>类型</th><th>关联组件数</th><th>主机名</th><th>主机IP</th></tr></thead><tbody>';
+    (d.assets||[]).forEach(a=>{
+      html += `<tr><td style="font-weight:600;">${a.name}</td><td><span class="badge badge-info">${normalizeAssetType(a.type)}</span></td><td class="mono text-center">${a.components}</td><td>${a.host}</td><td class="mono text-sm">${a.ip}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    html += '<div class="info-section"><div class="info-section-title">影响组件信息 <span class="text-xs text-tertiary ml-4">(' + (d.components||[]).length + ')</span></div>';
+    html += '<table class="sp-table"><thead><tr><th>组件名称</th><th>类型</th><th>版本</th><th>编程语言</th><th>组件首页</th></tr></thead><tbody>';
+    (d.components||[]).forEach(c=>{
+      const language = c.language || c.lang || '-';
+      const homepage = c.homepage || c.url || c.repo || '-';
+      html += `<tr><td style="font-weight:600;">${c.name}</td><td><span class="badge badge-gray">${c.type}</span></td><td class="mono text-xs">${c.version}</td><td>${language}</td><td class="mono text-sm">${homepage}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+    document.getElementById('spBody').innerHTML = html;
+    document.getElementById('sidePanel').classList.add('open');
+    document.getElementById('spOverlay').classList.add('open');
+  }
+  function toggleCollapse(h) {
+    h.classList.toggle('open');
+    const b = h.nextElementSibling;
+    if (b) b.classList.toggle('open');
+  }
+  function copyCode(btn) {
+    const text = btn.parentElement.textContent.replace('复制','').trim();
+    navigator.clipboard.writeText(text).then(()=>{
+      btn.innerHTML = '<i class="ri-check-line"></i> 已复制';
+      setTimeout(()=>{ btn.innerHTML = '<i class="ri-file-copy-line"></i> 复制'; }, 1800);
+    });
+  }
+
+  function closePanel() {
+    document.getElementById('sidePanel').classList.remove('open');
+    document.getElementById('spOverlay').classList.remove('open');
+  }
+
+  let licensePopoverAnchor = null;
+  let licensePopoverOutsideHandlerBound = false;
+
+  function showLicensePopover(evt, licenseStr) {
+    if (evt) evt.stopPropagation();
+    const anchor = evt?.currentTarget || evt?.target;
+    const pop = document.getElementById('licensePopover');
+    const body = document.getElementById('licensePopoverBody');
+    if (!pop || !body || !anchor) return;
+
+    const raw = String(licenseStr ?? '').trim();
+    let licenses = raw && raw !== '-' ? raw.split(',').map(l => l.trim()).filter(Boolean) : [];
+    if (licenses.length <= 1) {
+      const extra = ['Apache-2.0', 'MIT', 'BSD-2-Clause', 'LGPL-2.1-only', 'MPL-2.0'];
+      licenses = [...new Set([...licenses, ...extra])].filter(Boolean);
+    }
+
+    body.innerHTML = licenses.length === 0
+      ? '<div style="color:var(--text-tertiary);text-align:center;padding:14px 8px;">暂无许可证信息</div>'
+      : `
+        <div class="license-list">
+          ${licenses.map(l => `
+            <div class="license-item">
+              <span class="license-item-name">${l}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    
+    const countEl = document.getElementById('licensePopoverCount');
+    if (countEl) countEl.textContent = `(${licenses.length})`;
+
+    if (pop.classList.contains('show') && licensePopoverAnchor === anchor) {
+      closeLicensePopover();
+      return;
+    }
+
+    licensePopoverAnchor = anchor;
+    pop.classList.add('show');
+
+    const ar = anchor.getBoundingClientRect();
+    const pr = pop.getBoundingClientRect();
+    const margin = 8;
+    let left = ar.left;
+    let top = ar.bottom + margin;
+
+    if (left + pr.width + margin > window.innerWidth) left = Math.max(margin, window.innerWidth - pr.width - margin);
+    if (top + pr.height + margin > window.innerHeight) top = Math.max(margin, ar.top - pr.height - margin);
+    if (top < margin) top = margin;
+
+    pop.style.left = `${left}px`;
+    pop.style.top = `${top}px`;
+
+    if (!licensePopoverOutsideHandlerBound) {
+      document.addEventListener('click', (e) => {
+        const p = document.getElementById('licensePopover');
+        if (!p || !p.classList.contains('show')) return;
+        if (p.contains(e.target)) return;
+        if (licensePopoverAnchor && licensePopoverAnchor.contains(e.target)) return;
+        closeLicensePopover();
+      });
+      window.addEventListener('resize', () => closeLicensePopover());
+      window.addEventListener('scroll', () => closeLicensePopover(), true);
+      licensePopoverOutsideHandlerBound = true;
+    }
+  }
+
+  function closeLicensePopover() {
+    const pop = document.getElementById('licensePopover');
+    if (!pop) return;
+    pop.classList.remove('show');
+    licensePopoverAnchor = null;
+  }
+
+  document.addEventListener('keydown', e => { 
+    if(e.key === 'Escape') {
+      closePanel(); 
+      closeLicensePopover();
+    }
+  });
+
+  // ─── Charts Initialization ───
+  document.addEventListener('DOMContentLoaded', function() {
+    Chart.defaults.font.family = 'Outfit, PingFang SC, sans-serif';
+    const isDark = () => document.documentElement.classList.contains('dark');
+    const gridColor = () => isDark() ? '#2a2f45' : '#F2F3F5';
+    const tickColor = () => isDark() ? '#5c6580' : '#86909C';
+    const tooltipBg = () => isDark() ? '#1a1d27' : '#1D2129';
+    const borderColor = () => isDark() ? '#1a1d27' : '#fff';
+
+    // 1. Asset Composition (Donut)
+    const assetCtx = document.getElementById('assetDistChart');
+    if (assetCtx) {
+      new Chart(assetCtx, {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [30, 25, 20, 25],
+            backgroundColor: ['#165DFF', '#00B42A', '#722ED1', '#FF7D00'],
+            borderWidth: 2,
+            borderColor: borderColor(),
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: false,
+          cutout: '68%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: tooltipBg(),
+              bodyColor: '#F9FAFB',
+              padding: 8,
+              cornerRadius: 6,
+              callbacks: {
+                label: function(context) {
+                  const labels = ['系统', '应用', '容器', '模型'];
+                  return ` ${labels[context.dataIndex]}: ${context.parsed}%`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // 2. Vulnerability Trend (Line)
+    const trendCtx = document.getElementById('vulnTrendChart');
+    if (trendCtx) {
+      const labels = ['08-18', '08-19', '08-20', '08-21', '08-22', '08-23', '08-24'];
+      
+      new Chart(trendCtx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: '严重',
+              data: [3, 10, 12, 26, 24, 29, 33],
+              borderColor: '#722ED1',
+              backgroundColor: isDark() ? 'rgba(114,46,209,0.12)' : 'rgba(114, 46, 209, 0.05)',
+              borderWidth: 2, tension: 0.4, pointRadius: 0, pointHoverRadius: 4,
+              pointBackgroundColor: '#722ED1', fill: true
+            },
+            {
+              label: '高危',
+              data: [15, 41, 36, 59, 53, 75, 59],
+              borderColor: '#F53F3F',
+              backgroundColor: isDark() ? 'rgba(245,63,63,0.12)' : 'rgba(245, 63, 63, 0.05)',
+              borderWidth: 2, tension: 0.4, pointRadius: 0, pointHoverRadius: 4,
+              pointBackgroundColor: '#F53F3F', fill: true
+            },
+            {
+              label: '中危',
+              data: [67, 75, 78, 94, 93, 87, 87],
+              borderColor: '#FF7D00',
+              backgroundColor: isDark() ? 'rgba(255,125,0,0.12)' : 'rgba(255, 125, 0, 0.05)',
+              borderWidth: 2, tension: 0.4, pointRadius: 0, pointHoverRadius: 4,
+              pointBackgroundColor: '#FF7D00', fill: true
+            },
+            {
+              label: '低危',
+              data: [37, 50, 50, 69, 38, 57, 49],
+              borderColor: '#00B42A',
+              backgroundColor: isDark() ? 'rgba(0,180,42,0.12)' : 'rgba(0, 180, 42, 0.05)',
+              borderWidth: 2, tension: 0.4, pointRadius: 0, pointHoverRadius: 4,
+              pointBackgroundColor: '#00B42A', fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: tooltipBg(),
+              titleColor: tickColor(),
+              bodyColor: '#F9FAFB',
+              padding: 10, cornerRadius: 6,
+              titleFont: { size: 11 }, bodyFont: { size: 12, weight: '500' }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              border: { display: false },
+              ticks: { color: tickColor(), font: { size: 11 } }
+            },
+            y: {
+              grid: { color: gridColor(), borderDash: [4, 4] },
+              border: { display: false },
+              ticks: { color: tickColor(), font: { size: 11 }, maxTicksLimit: 5 },
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+  });
+</script>
+</body>
+</html>

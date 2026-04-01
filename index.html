@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-BOM 智能物料管理平台 - 登录</title>
+    <script>
+        if (sessionStorage.getItem('aibom_auth') === 'authenticated') {
+            window.location.replace('home.html');
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'Noto Sans SC','Inter',sans-serif;background:linear-gradient(180deg,#f0f4ff 0%,#e8f0fe 30%,#f5f8ff 60%,#e3f2fd 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+        .bg-decoration{position:fixed;width:100%;height:100%;top:0;left:0;pointer-events:none;overflow:hidden;}
+        .circle{position:absolute;border-radius:50%;opacity:0.3;}
+        .circle-1{width:600px;height:600px;background:radial-gradient(circle,rgba(147,197,253,0.4) 0%,rgba(147,197,253,0.1) 40%,transparent 70%);top:-300px;right:-100px;animation:float1 25s infinite ease-in-out;}
+        .circle-2{width:500px;height:500px;background:radial-gradient(circle,rgba(196,181,253,0.3) 0%,rgba(196,181,253,0.08) 40%,transparent 70%);bottom:-150px;left:-150px;animation:float2 22s infinite ease-in-out;}
+        .circle-3{width:400px;height:400px;background:radial-gradient(circle,rgba(165,243,252,0.25) 0%,rgba(165,243,252,0.06) 40%,transparent 70%);top:50%;left:20%;animation:float3 28s infinite ease-in-out;}
+        .circle-4{width:350px;height:350px;background:radial-gradient(circle,rgba(129,140,248,0.2) 0%,rgba(129,140,248,0.05) 40%,transparent 70%);top:20%;right:30%;animation:float1 30s infinite ease-in-out;animation-delay:-5s;}
+        @keyframes float1{0%,100%{transform:translate(0,0) scale(1);opacity:0.3;}50%{transform:translate(-20px,20px) scale(1.05);opacity:0.4;}}
+        @keyframes float2{0%,100%{transform:translate(0,0) scale(1);opacity:0.3;}50%{transform:translate(30px,-30px) scale(1.08);opacity:0.35;}}
+        @keyframes float3{0%,100%{transform:translate(0,0) scale(1);opacity:0.25;}50%{transform:translate(15px,15px) scale(1.03);opacity:0.3;}}
+        
+        /* 科技/AI 背景点缀样式 */
+        .tech-decor {position:absolute;z-index:0;opacity:0.6;pointer-events:none;}
+        .tech-decor-2 {width:500px;height:500px;bottom:-50px;right:-50px;animation:spin 80s linear infinite reverse; opacity:0.3;}
+
+        .grid-bg{position:fixed;top:0;left:0;width:100%;height:100%;background-image:linear-gradient(rgba(147,197,253,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(147,197,253,0.04) 1px,transparent 1px);background-size:60px 60px;animation:gridSlide 40s linear infinite;opacity:0.6;}
+        @keyframes gridSlide{0%{transform:translate(0,0);opacity:0.6;}50%{opacity:0.4;}100%{transform:translate(60px,60px);opacity:0.6;}}
+        .container{position:relative;z-index:10;width:100%;max-width:1200px;padding:40px;display:flex;align-items:center;justify-content:center;gap:100px;}
+        .brand-section{flex:1;max-width:500px;}
+        .logo-area{margin-bottom:50px;}
+        .brand-logo{font-size:52px;font-weight:700;background:linear-gradient(135deg,#1e40af 0%,#3b82f6 50%,#0ea5e9 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1px;margin-bottom:15px;}
+        .brand-title{font-size:28px;font-weight:600;color:#1e293b;margin-bottom:12px;}
+        .brand-desc{font-size:16px;color:#64748b;line-height:1.7;}
+        .features{display:grid;gap:15px;margin-top:40px;}
+        .feature-card{background:rgba(255,255,255,0.7);padding:20px;border-radius:16px;border:1px solid rgba(224,242,254,0.8);box-shadow:0 2px 8px rgba(59,130,246,0.08);display:flex;align-items:center;gap:16px;transition:all 0.3s ease;backdrop-filter:blur(10px);}
+        .feature-card:hover{background:rgba(255,255,255,0.85);transform:translateY(-3px);box-shadow:0 8px 20px rgba(59,130,246,0.15);border-color:#bfdbfe;}
+        .feature-icon{width:48px;height:48px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+        .feature-icon svg{width:24px;height:24px;}
+        .feature-content h3{font-size:15px;font-weight:600;color:#1e293b;margin-bottom:4px;}
+        .feature-content p{font-size:13px;color:#64748b;line-height:1.5;}
+        .login-section{width:100%;max-width:460px;}
+        .login-card{background:white;border-radius:24px;padding:35px 40px;box-shadow:0 20px 50px rgba(59,130,246,0.12),0 0 0 1px rgba(226,232,240,0.5);animation:cardAppear 0.6s cubic-bezier(0.16,1,0.3,1);}
+        @keyframes cardAppear{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+        .form-header{text-align:center;margin-bottom:25px;}
+        .form-icon{width:50px;height:50px;background:linear-gradient(135deg,#3b82f6,#6366f1);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 6px 16px rgba(59,130,246,0.25);}
+        .form-icon svg{width:26px;height:26px;color:white;}
+        .form-title{font-size:22px;font-weight:700;color:#1e293b;margin-bottom:5px;}
+        .form-subtitle{font-size:14px;color:#64748b;}
+        .form-group{margin-bottom:16px;}
+        .form-label{display:block;font-size:14px;font-weight:500;color:#475569;margin-bottom:8px;}
+        .input-wrapper{position:relative;}
+        .form-input{width:100%;padding:12px 16px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;color:#1e293b;font-size:15px;font-family:'Noto Sans SC','Inter',sans-serif;transition:all 0.3s ease;outline:none;}
+        .form-input:focus{background:white;border-color:#3b82f6;box-shadow:0 0 0 4px rgba(59,130,246,0.1);}
+        .form-input.input-error{border-color:#ef4444;background:#fff8f8;}
+        .form-input.input-error:focus{box-shadow:0 0 0 4px rgba(239,68,68,0.1);}
+        .form-input::placeholder{color:#94a3b8;}
+        .captcha-wrapper{display:flex;gap:12px;align-items:center;}
+        .captcha-input{flex:1;}
+        .captcha-box{display:flex;gap:8px;align-items:center;}
+        #captchaCanvas{background:white;border:1.5px solid #e2e8f0;border-radius:10px;cursor:pointer;transition:all 0.3s ease;}
+        #captchaCanvas:hover{border-color:#3b82f6;box-shadow:0 2px 8px rgba(59,130,246,0.15);}
+        .refresh-btn{width:40px;height:40px;background:linear-gradient(135deg,#3b82f6,#6366f1);border:none;border-radius:10px;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.3s ease;}
+        .refresh-btn:hover{transform:rotate(180deg);box-shadow:0 4px 12px rgba(59,130,246,0.3);}
+        .form-options{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+        .checkbox-group{display:flex;align-items:center;gap:8px;cursor:pointer;}
+        .checkbox-group input[type="checkbox"]{width:18px;height:18px;cursor:pointer;accent-color:#3b82f6;}
+        .checkbox-label{font-size:14px;color:#64748b;user-select:none;}
+        .forgot-link{font-size:14px;color:#3b82f6;text-decoration:none;font-weight:500;transition:color 0.3s ease;}
+        .forgot-link:hover{color:#2563eb;}
+        .error-msg{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#ef4444;margin-bottom:14px;min-height:20px;text-align:center;opacity:0;transform:translateY(-4px);transition:opacity 0.2s ease,transform 0.2s ease;}
+        .error-msg.visible{opacity:1;transform:translateY(0);}
+        .error-msg svg{width:15px;height:15px;flex-shrink:0;}
+        .login-btn{width:100%;padding:14px;background:linear-gradient(135deg,#3b82f6 0%,#6366f1 100%);border:none;border-radius:12px;color:white;font-size:16px;font-weight:600;cursor:pointer;transition:all 0.3s ease;box-shadow:0 4px 14px rgba(59,130,246,0.3);position:relative;overflow:hidden;font-family:'Noto Sans SC','Inter',sans-serif;display:flex;align-items:center;justify-content:center;gap:8px;}
+        .login-btn::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);transition:left 0.6s ease;}
+        .login-btn:hover::before{left:100%;}
+        .login-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(59,130,246,0.4);}
+        .login-btn:active{transform:translateY(0);}
+        .login-btn:disabled{opacity:0.7;cursor:not-allowed;transform:none;}
+        .btn-spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.35);border-top-color:white;border-radius:50%;animation:spin 0.65s linear infinite;display:none;flex-shrink:0;}
+        .login-btn.loading .btn-text{display:none;}
+        .login-btn.loading .btn-spinner{display:block;}
+        @keyframes spin{to{transform:rotate(360deg);}}
+        .signup-text{text-align:center;margin-top:20px;font-size:14px;color:#64748b;}
+        .signup-link{color:#3b82f6;text-decoration:none;font-weight:500;margin-left:4px;transition:color 0.3s ease;}
+        .signup-link:hover{color:#2563eb;}
+        @media(max-width:1024px){.container{flex-direction:column;gap:50px;}.brand-section{text-align:center;}.logo-area{margin-bottom:30px;}.features{max-width:500px;margin:30px auto 0;}}
+        @media(max-width:640px){.container{padding:20px;}.brand-logo{font-size:40px;}.brand-title{font-size:22px;}.login-card{padding:40px 30px;}.form-title{font-size:22px;}.features{display:none;}}
+    </style>
+</head>
+<body>
+    <div class="bg-decoration">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
+        <div class="circle circle-4"></div>
+        
+        <!-- 科技/AI 元素点缀 -->
+        <svg class="tech-decor tech-decor-2" viewBox="0 0 100 100" fill="none" stroke="rgba(99,102,241,0.15)" stroke-width="1">
+            <polygon points="50,10 90,30 90,70 50,90 10,70 10,30" />
+            <polygon points="50,25 75,40 75,60 50,75 25,60 25,40" stroke-dasharray="3 3" />
+            <circle cx="50" cy="50" r="5" fill="rgba(99,102,241,0.1)" stroke="none" />
+            <line x1="50" y1="10" x2="50" y2="50" />
+            <line x1="90" y1="30" x2="50" y2="50" />
+            <line x1="10" y1="30" x2="50" y2="50" />
+        </svg>
+    </div>
+    <div class="grid-bg"></div>
+    
+    <div class="container">
+        <!-- 左侧品牌区 -->
+        <div class="brand-section">
+            <div class="logo-area">
+                <div class="brand-logo">AI-BOM</div>
+                <h1 class="brand-title">资产与物料全生命周期管控平台</h1>
+                <p class="brand-desc">智驭资产，AI 驱动全景可视，筑牢供应链安全基石</p>
+            </div>
+            
+            <div class="features">
+                <!-- 特性1：AI 智能采集 → 线性机器人图标 -->
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="8" width="16" height="11" rx="2.5"/>
+                            <line x1="12" y1="4" x2="12" y2="8"/>
+                            <circle cx="12" cy="3.5" r="1" fill="#3b82f6" stroke="none"/>
+                            <circle cx="9" cy="13.5" r="1.3" fill="#3b82f6" stroke="none"/>
+                            <circle cx="15" cy="13.5" r="1.3" fill="#3b82f6" stroke="none"/>
+                            <line x1="4" y1="11.5" x2="1.5" y2="14"/>
+                            <line x1="20" y1="11.5" x2="22.5" y2="14"/>
+                        </svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>AI 智能采集</h3>
+                        <p>全域资产与物料自动识别聚合</p>
+                    </div>
+                </div>
+
+                <!-- 特性2：实时风险态势 → 线性数据图表图标 -->
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="20" x2="21" y2="20"/>
+                            <line x1="3" y1="20" x2="3" y2="4"/>
+                            <polyline points="7,14 11,9 15,12 20,5" stroke="#6366f1" stroke-width="2"/>
+                            <circle cx="7" cy="14" r="1.5" fill="#6366f1" stroke="none"/>
+                            <circle cx="11" cy="9" r="1.5" fill="#6366f1" stroke="none"/>
+                            <circle cx="15" cy="12" r="1.5" fill="#6366f1" stroke="none"/>
+                            <circle cx="20" cy="5" r="1.5" fill="#6366f1" stroke="none"/>
+                        </svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>实时风险态势</h3>
+                        <p>漏洞可视化与影响范围追溯</p>
+                    </div>
+                </div>
+
+                <!-- 特性3：合规审计支撑 → 线性盾牌+对勾图标 -->
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2 L20 6 L20 12 C20 16.5 16.5 20.4 12 22 C7.5 20.4 4 16.5 4 12 L4 6 Z" fill="#dbeafe" stroke="#3b82f6" stroke-width="1.6"/>
+                            <polyline points="8.5,12.5 11,15 15.5,9.5" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <div class="feature-content">
+                        <h3>合规审计支撑</h3>
+                        <p>全链路物料追溯与安全管控</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧登录区 -->
+        <div class="login-section">
+            <div class="login-card">
+                <div class="form-header">
+                    <div class="form-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                    </div>
+                    <h2 class="form-title">欢迎登录</h2>
+                    <p class="form-subtitle">请输入您的账户信息</p>
+                </div>
+                
+                <form id="loginForm" onsubmit="return false;">
+                    <div class="form-group">
+                        <label class="form-label">用户名</label>
+                        <div class="input-wrapper">
+                            <input type="text" id="username" class="form-input" placeholder="请输入您的用户名" autocomplete="username" spellcheck="false">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">密码</label>
+                        <div class="input-wrapper">
+                            <input type="password" id="password" class="form-input" placeholder="请输入您的密码" autocomplete="current-password">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">验证码</label>
+                        <div class="captcha-wrapper">
+                            <input type="text" id="captchaInput" class="form-input captcha-input" placeholder="请输入验证码" maxlength="4">
+                            <div class="captcha-box">
+                                <canvas id="captchaCanvas" width="120" height="40" title="点击刷新验证码"></canvas>
+                                <button type="button" class="refresh-btn" onclick="generateCaptcha()" title="刷新验证码">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                        <path d="M23 4v6h-6M1 20v-6h6"/>
+                                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="checkbox-group">
+                            <input type="checkbox" id="rememberMe">
+                            <span class="checkbox-label">记住我</span>
+                        </label>
+                        <a href="#" class="forgot-link">忘记密码？</a>
+                    </div>
+
+                    <!-- 错误提示 -->
+                    <div class="error-msg" id="errorMsg">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                        </svg>
+                        <span id="errorText"></span>
+                    </div>
+                    
+                    <button type="button" class="login-btn" id="loginBtn" onclick="handleLogin()">
+                        <span class="btn-text">立即登录</span>
+                        <div class="btn-spinner"></div>
+                    </button>
+                </form>
+                
+                <div class="signup-text">
+                    还没有账户？<a href="#" class="signup-link">立即注册</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const REMEMBER_KEYS = {
+            enabled: 'aibom_remember_enabled',
+            username: 'aibom_remember_username',
+            password: 'aibom_remember_password'
+        };
+
+        function generateCaptcha() {
+            const canvas = document.getElementById('captchaCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let captchaText = '';
+            for (let i = 0; i < 4; i++) captchaText += chars.charAt(Math.floor(Math.random() * chars.length));
+            for (let i = 0; i < 2; i++) {
+                ctx.strokeStyle = `rgba(${100+Math.random()*100},${150+Math.random()*50},${200+Math.random()*55},0.4)`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(Math.random()*canvas.width, Math.random()*canvas.height);
+                ctx.lineTo(Math.random()*canvas.width, Math.random()*canvas.height);
+                ctx.stroke();
+            }
+            ctx.font = 'bold 26px Arial';
+            ctx.textBaseline = 'middle';
+            const colors = ['#3b82f6','#6366f1','#0ea5e9','#8b5cf6'];
+            for (let i = 0; i < captchaText.length; i++) {
+                ctx.save();
+                ctx.translate(15+i*25, 20);
+                ctx.rotate((Math.random()-0.5)*0.3);
+                ctx.fillStyle = colors[i%colors.length];
+                ctx.fillText(captchaText[i], 0, 0);
+                ctx.restore();
+            }
+            for (let i = 0; i < 40; i++) {
+                ctx.fillStyle = `rgba(${100+Math.random()*100},${150+Math.random()*50},${200+Math.random()*55},0.3)`;
+                ctx.beginPath();
+                ctx.arc(Math.random()*canvas.width, Math.random()*canvas.height, 1, 0, 2*Math.PI);
+                ctx.fill();
+            }
+            canvas.dataset.captcha = captchaText;
+        }
+
+        function clearError() {
+            document.getElementById('errorMsg').classList.remove('visible');
+            ['username','password','captchaInput'].forEach(id => document.getElementById(id).classList.remove('input-error'));
+        }
+
+        function showError(msg, fields) {
+            document.getElementById('errorText').textContent = msg;
+            document.getElementById('errorMsg').classList.add('visible');
+            (fields||[]).forEach(id => document.getElementById(id).classList.add('input-error'));
+        }
+
+        function loadRememberedCredentials() {
+            const enabled = localStorage.getItem(REMEMBER_KEYS.enabled) === '1';
+            const username = localStorage.getItem(REMEMBER_KEYS.username) || '';
+            const password = localStorage.getItem(REMEMBER_KEYS.password) || '';
+
+            document.getElementById('rememberMe').checked = enabled;
+            if (enabled) {
+                if (username) document.getElementById('username').value = username;
+                if (password) document.getElementById('password').value = password;
+            }
+        }
+
+        function handleLogin() {
+            const btn = document.getElementById('loginBtn');
+            if (btn.classList.contains('loading')) return;
+            clearError();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const captchaInput = document.getElementById('captchaInput').value.toUpperCase().trim();
+            const correctCaptcha = document.getElementById('captchaCanvas').dataset.captcha;
+
+            if (!username || !password) {
+                showError('用户名和密码不能为空', ['username','password']);
+                if (!username) document.getElementById('username').focus();
+                else document.getElementById('password').focus();
+                return;
+            }
+            if (!captchaInput) {
+                showError('请输入验证码', ['captchaInput']);
+                document.getElementById('captchaInput').focus();
+                return;
+            }
+            if (username !== 'admin') {
+                showError('用户名不存在，请检查', ['username']);
+                document.getElementById('username').focus();
+                return;
+            }
+            if (password !== 'cqcdi@2026') {
+                showError('密码错误，请重新输入', ['password']);
+                document.getElementById('password').value = '';
+                document.getElementById('password').focus();
+                return;
+            }
+            if (captchaInput !== correctCaptcha) {
+                showError('验证码错误，请重新输入', ['captchaInput']);
+                generateCaptcha();
+                document.getElementById('captchaInput').value = '';
+                document.getElementById('captchaInput').focus();
+                return;
+            }
+
+            btn.classList.add('loading');
+            btn.disabled = true;
+            sessionStorage.setItem('aibom_auth', 'authenticated');
+            sessionStorage.setItem('aibom_user', username);
+            localStorage.removeItem('aibom_dark');
+            const remember = document.getElementById('rememberMe').checked;
+            if (remember) {
+                localStorage.setItem(REMEMBER_KEYS.enabled, '1');
+                localStorage.setItem(REMEMBER_KEYS.username, username);
+                localStorage.setItem(REMEMBER_KEYS.password, password);
+            } else {
+                localStorage.removeItem(REMEMBER_KEYS.enabled);
+                localStorage.removeItem(REMEMBER_KEYS.username);
+                localStorage.removeItem(REMEMBER_KEYS.password);
+            }
+            setTimeout(() => { window.location.href = 'home.html'; }, 600);
+        }
+
+        document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+        ['username','password','captchaInput'].forEach(id => document.getElementById(id).addEventListener('input', clearError));
+
+        window.onload = function() {
+            generateCaptcha();
+            document.getElementById('captchaCanvas').addEventListener('click', generateCaptcha);
+            loadRememberedCredentials();
+        };
+    </script>
+</body>
+</html>

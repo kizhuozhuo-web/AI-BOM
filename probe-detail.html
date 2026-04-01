@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>探针详情 - AIBOM Platform</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    /* ── Banner ── */
+    .probe-info-banner { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px; box-shadow: var(--shadow-card); }
+    .detail-grid-probe { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 24px; }
+    .detail-item { display: flex; flex-direction: column; gap: 3px; }
+    .detail-label { font-size: 11px; color: var(--gray-400); font-weight: 500; text-transform: uppercase; letter-spacing: .4px; }
+    .detail-value { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+
+    /* ── Banner section title: blue bar + no bottom border ── */
+    .banner-section-title {
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+      padding-bottom: 0; border-bottom: none; margin-bottom: 10px;
+    }
+    .banner-section-title::before {
+      content: ''; width: 3px; height: 14px;
+      background: var(--primary); border-radius: 2px; flex-shrink: 0;
+    }
+    .banner-section-title::after { display: none; }
+
+    /* ── Tab panel plain title (no bar, no line) ── */
+    .panel-title {
+      font-size: 13px; font-weight: 600; color: var(--text-primary);
+      display: flex; align-items: center; gap: 8px;
+      padding-bottom: 0; border-bottom: none; margin-bottom: 0;
+    }
+    .panel-title::before { display: none; }
+
+    /* ── Sub-section label inside tab panels ── */
+    .sub-title {
+      font-size: 12px; font-weight: 600; color: var(--text-secondary);
+      margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+      padding-bottom: 0; border-bottom: none;
+    }
+    .sub-title::before { display: none !important; }
+
+    /* ── Collect config accordion ── */
+    .collect-config-wrap { display: flex; flex-direction: column; gap: 10px; }
+    .collect-group { border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden; }
+    .collect-group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--gray-50); cursor: pointer; user-select: none; transition: var(--t-fast); }
+    .collect-group-header:hover { background: var(--primary-50); }
+    .collect-group-title { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; }
+    .collect-group-title i { color: var(--primary); font-size: 14px; }
+    .collect-group-arrow { color: var(--gray-400); font-size: 14px; transition: transform .2s; }
+    .collect-group-arrow.open { transform: rotate(180deg); }
+    .collect-group-body { padding: 12px 14px 14px; background: var(--bg-surface); display: none; }
+    .collect-group-body.open { display: block; }
+    .collect-check-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 0; }
+    .collect-check-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-primary); }
+    .collect-check-item i { color: var(--success); font-size: 14px; }
+    .bom-collect-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .bom-collect-table th { font-size: 11px; color: var(--gray-400); font-weight: 600; text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border-color); background: var(--gray-50); }
+    .bom-collect-table td { padding: 7px 10px; border-bottom: 1px solid var(--gray-100); color: var(--text-primary); }
+    .bom-collect-table tr:last-child td { border-bottom: none; }
+    .bom-collect-table .mono { font-family: var(--font-mono); font-size: 11px; }
+    .bom-type-tag { display: inline-flex; align-items: center; padding: 1px 8px; font-size: 11px; border-radius: var(--radius-sm); background: var(--primary-50); color: var(--primary); border: 1px solid var(--primary-100); }
+
+    /* ── Hardware tables: uniform 4-col layout ── */
+    #tab-hw .hw-kv-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; table-layout: fixed; }
+    #tab-hw .hw-kv-table th { text-align: left; padding: 8px 12px; font-size: 12px; color: var(--gray-400); font-weight: 500; background: var(--gray-50); border: 1px solid var(--border-color); white-space: nowrap; }
+    #tab-hw .hw-kv-table td { padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-color); word-break: break-all; }
+    #tab-hw .hw-kv-table colgroup col:nth-child(odd) { width: 18%; }
+    #tab-hw .hw-kv-table colgroup col:nth-child(even) { width: 32%; }
+    #tab-hw .hw-section-label { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 10px; display: block; }
+
+    /* ── Time switcher ── */
+    .time-switcher { display: flex; background: var(--gray-100); border-radius: var(--radius-md); padding: 3px; }
+    .time-switcher .ts-btn { padding: 4px 12px; font-size: 11px; font-weight: 500; background: transparent; border: none; color: var(--gray-400); cursor: pointer; transition: var(--t-fast); border-radius: var(--radius-sm); }
+    .time-switcher .ts-btn.active { background: var(--bg-surface); color: var(--primary); font-weight: 600; box-shadow: var(--shadow-sm); }
+
+    /* ── Charts ── */
+    .chart-wrap { width: 100%; background: var(--gray-50); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 16px; box-sizing: border-box; }
+    .chart-canvas-wrap { position: relative; width: 100%; }
+
+    /* ── Device list (no outer border, no header bg) ── */
+    /* CPU / GPU / Disk / Net device rows — borderless */
+    .device-list { display: flex; flex-direction: column; gap: 0; margin-bottom: 4px; }
+    .device-row { border-bottom: none; }
+    .device-row-header { display: flex; align-items: center; gap: 8px; padding: 10px 0; cursor: pointer; user-select: none; }
+    .device-row-header:hover .device-row-label { color: var(--primary); }
+    .device-row-label { font-size: 13px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px; flex: 1; }
+    .device-row-label i { color: var(--primary); }
+    .device-row-arrow { color: var(--gray-400); font-size: 14px; transition: transform .2s; }
+    .device-row-arrow.open { transform: rotate(180deg); }
+    .device-row-body { padding: 0 0 12px 0; display: none; }
+    .device-row-body.open { display: block; }
+
+    /* ── "查看全部" toggle button ── */
+    .toggle-all-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--primary); background: var(--primary-50); border: 1px solid var(--primary-100); border-radius: var(--radius-sm); padding: 3px 10px; cursor: pointer; transition: var(--t-fast); white-space: nowrap; }
+    .toggle-all-btn:hover { background: var(--primary-100); }
+
+    /* ── GPU donut panel ── */
+    .gpu-panel { background: var(--gray-50); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; align-items: center; justify-content: center; gap: 24px; min-height: 160px; }
+    .gpu-legend { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+    .gpu-legend-item { display: flex; align-items: center; gap: 6px; }
+    .gpu-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .panel-col { display: flex; flex-direction: column; min-width: 0; }
+    .panel-box { flex: 1; min-height: 160px; }
+
+    /* ── Memory stat row ── */
+    .mem-stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    .mem-stat-card { background: var(--gray-50); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+    .mem-stat-icon { width: 40px; height: 40px; border-radius: 50%; border: 3px solid; flex-shrink: 0; }
+    .mem-stat-icon.blue { border-color: var(--primary); }
+    .mem-stat-icon.green { border-color: var(--success); }
+    .mem-stat-icon.orange { border-color: var(--warning); }
+    .mem-stat-icon.red { border-color: var(--danger); }
+    .mem-stat-label { font-size: 11px; color: var(--gray-400); font-weight: 500; }
+    .mem-stat-value { font-size: 20px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); line-height: 1.2; }
+    .mem-stat-unit { font-size: 12px; color: var(--gray-400); }
+    .mem-usage-bar { height: 4px; background: var(--gray-200); border-radius: 100px; overflow: hidden; margin-top: 4px; }
+    .mem-usage-fill { height: 100%; border-radius: 100px; }
+
+    /* memory donut ring */
+    .mem-donut-wrap { display: flex; align-items: center; gap: 20px; }
+    .mem-donut-legend { display: flex; flex-direction: column; gap: 8px; font-size: 12px; }
+    .mem-donut-legend-item { display: flex; align-items: center; gap: 6px; }
+    .mem-donut-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="header" id="header"></header>
+    <div class="page-content page-enter">
+      <div class="page-header">
+        <div><div class="page-title">探针详情</div><div class="page-desc">查看探针完整的硬件配置、系统指标与网络信息</div></div>
+        <div class="flex gap-8">
+          <a href="bom-manage.html" class="btn btn-secondary btn-sm"><i class="ri-file-list-3-line"></i> 查看物料信息</a>
+          <a href="probe-manage.html" class="btn btn-ghost btn-sm"><i class="ri-arrow-left-line"></i> 返回列表</a>
+        </div>
+      </div>
+
+      <!-- ── Probe Info Banner ── -->
+      <div class="probe-info-banner">
+
+        <!-- 1. 探针信息 -->
+        <div class="flex items-center justify-between mb-16">
+          <div class="banner-section-title" style="margin:0;">探针信息</div>
+          <span class="status-tag st-online"><span class="status-dot online"></span> 在线</span>
+        </div>
+        <div class="detail-grid-probe mb-16">
+          <div class="detail-item"><div class="detail-label">主机名称</div><div class="detail-value" style="font-weight:700;">node-prod-bj-01</div></div>
+          <div class="detail-item"><div class="detail-label">主机 IP</div><div class="detail-value mono">192.168.10.42</div></div>
+          <div class="detail-item"><div class="detail-label">操作系统</div><div class="detail-value">Linux</div></div>
+          <div class="detail-item"><div class="detail-label">操作系统版本</div><div class="detail-value">Ubuntu 22.04.3 LTS</div></div>
+          <div class="detail-item"><div class="detail-label">架构</div><div class="detail-value mono">x86_64</div></div>
+          <div class="detail-item"><div class="detail-label">探针版本</div><div class="detail-value"><span class="badge badge-info">v2.4.1</span></div></div>
+          <div class="detail-item"><div class="detail-label">License 状态</div><div class="detail-value"><span class="status-tag st-success"><i class="ri-shield-check-line"></i> 验证成功</span></div></div>
+          <div class="detail-item"><div class="detail-label">创建时间</div><div class="detail-value mono text-sm">2025-10-29 08:23:17</div></div>
+        </div>
+
+        <!-- 2. 注册状态 -->
+        <div class="banner-section-title mb-12">注册状态</div>
+        <div class="stepper mb-16">
+          <div class="stepper-step done"><span class="step-num"><i class="ri-check-line"></i></span><span>发送注册请求</span></div>
+          <div class="stepper-line" style="background:var(--success);"></div>
+          <div class="stepper-step done"><span class="step-num"><i class="ri-check-line"></i></span><span>License 验证</span></div>
+          <div class="stepper-line" style="background:var(--success);"></div>
+          <div class="stepper-step done"><span class="step-num"><i class="ri-check-line"></i></span><span>获取授权码</span></div>
+          <div class="stepper-line" style="background:var(--success);"></div>
+          <div class="stepper-step done"><span class="step-num"><i class="ri-check-line"></i></span><span>注册成功</span></div>
+        </div>
+
+        <!-- 3. 采集配置 -->
+        <div class="banner-section-title mb-12">采集配置</div>
+        <div class="collect-config-wrap">
+          <!-- 基础信息采集 -->
+          <div class="collect-group">
+            <div class="collect-group-header" onclick="toggleCollectGroup(this)">
+              <div class="collect-group-title"><i class="ri-cpu-line"></i>基础信息采集</div>
+              <i class="ri-arrow-down-s-line collect-group-arrow"></i>
+            </div>
+            <div class="collect-group-body">
+              <div class="collect-check-grid">
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 硬件信息</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> CPU信息</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> GPU信息</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 硬盘信息</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 网络信息</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 系统信息</div>
+              </div>
+            </div>
+          </div>
+          <!-- 指标采集 -->
+          <div class="collect-group">
+            <div class="collect-group-header" onclick="toggleCollectGroup(this)">
+              <div class="collect-group-title"><i class="ri-bar-chart-line"></i>指标采集</div>
+              <i class="ri-arrow-down-s-line collect-group-arrow"></i>
+            </div>
+            <div class="collect-group-body">
+              <div class="collect-check-grid">
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 主机CPU</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 主机GPU</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 主机硬盘</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 主机网络</div>
+                <div class="collect-check-item"><i class="ri-checkbox-circle-fill"></i> 主机内存</div>
+              </div>
+            </div>
+          </div>
+          <!-- 物料清单采集 -->
+          <div class="collect-group">
+            <div class="collect-group-header" onclick="toggleCollectGroup(this)">
+              <div class="collect-group-title"><i class="ri-list-check-2"></i>物料清单采集</div>
+              <i class="ri-arrow-down-s-line collect-group-arrow"></i>
+            </div>
+            <div class="collect-group-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                <i class="ri-checkbox-circle-fill" style="color:var(--success);font-size:14px;"></i>
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);">系统清单</span>
+              </div>
+              <table class="bom-collect-table" style="margin-bottom:14px;">
+                <thead><tr><th>目标路径</th><th>系统类型</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">/usr/local/Cellar/</td><td><span class="bom-type-tag">文件</span></td></tr>
+                  <tr><td class="mono">/usr/local/Cellar/</td><td><span class="bom-type-tag">文件</span></td></tr>
+                </tbody>
+              </table>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+                <i class="ri-checkbox-circle-fill" style="color:var(--success);font-size:14px;"></i>
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);">容器清单</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                <i class="ri-checkbox-circle-fill" style="color:var(--success);font-size:14px;"></i>
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);">应用清单</span>
+              </div>
+              <table class="bom-collect-table" style="margin-bottom:14px;">
+                <thead><tr><th>目标路径</th><th>应用类型</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">/usr/local/Cellar/</td><td><span class="bom-type-tag">文件</span></td></tr>
+                </tbody>
+              </table>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                <i class="ri-checkbox-circle-fill" style="color:var(--success);font-size:14px;"></i>
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);">模型清单</span>
+              </div>
+              <table class="bom-collect-table">
+                <thead><tr><th>目标路径</th><th>模型类型</th></tr></thead>
+                <tbody>
+                  <tr><td class="mono">/data/model/HY-MT1.5-1.8B</td><td><span class="bom-type-tag">文件</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div><!-- /probe-info-banner -->
+
+      <!-- ── Tabs Card ── -->
+      <div class="card" style="padding:0;">
+        <div class="tabs" style="padding:0 20px;">
+          <button class="tab-item active" data-tab="tab-hw"><i class="ri-cpu-line"></i> 硬件信息</button>
+          <button class="tab-item" data-tab="tab-cpu"><i class="ri-cpu-fill"></i> CPU 信息</button>
+          <button class="tab-item" data-tab="tab-gpu"><i class="ri-layout-grid-line"></i> GPU 信息</button>
+          <button class="tab-item" data-tab="tab-mem"><i class="ri-database-2-line"></i> 内存信息</button>
+          <button class="tab-item" data-tab="tab-disk"><i class="ri-hard-drive-2-line"></i> 硬盘信息</button>
+          <button class="tab-item" data-tab="tab-net"><i class="ri-global-line"></i> 网络信息</button>
+          <button class="tab-item" data-tab="tab-sys"><i class="ri-terminal-box-line"></i> 系统信息</button>
+        </div>
+
+        <!-- ══ 硬件信息 ══ -->
+        <div class="tab-content active" id="tab-hw" style="padding:20px;">
+          <span class="hw-section-label">BIOS信息</span>
+          <table class="hw-kv-table">
+            <colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
+            <tr><th>BIOS 供应商</th><td>Apple Inc.</td><th>BIOS 版本</th><td class="mono">2022.140.5.0.0 (iBridge: 21.16.6074.0.0,0)</td></tr>
+            <tr><th>BIOS 出厂日期</th><td>2024-07-03</td><td></td><td></td></tr>
+          </table>
+          <span class="hw-section-label">机箱信息</span>
+          <table class="hw-kv-table">
+            <colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
+            <tr><th>机箱标签</th><td>Apple-Asset-Tag-2019</td><th>机箱序列号</th><td class="mono">C02D56DYMD6R</td></tr>
+            <tr><th>机箱供应商</th><td>Apple Inc.</td><th>机箱版本</th><td>1.0</td></tr>
+            <tr><th>机箱类型</th><td>9</td><th>机箱类型描述</th><td>Laptop</td></tr>
+          </table>
+          <span class="hw-section-label">产品信息</span>
+          <table class="hw-kv-table">
+            <colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
+            <tr><th>产品家族</th><td>Mac</td><th>产品名称</th><td>MacBookPro16,1</td></tr>
+            <tr><th>产品供应商</th><td>Apple Inc.</td><th>产品序列号</th><td class="mono">C02D56DYMD6R</td></tr>
+            <tr><th>产品uuid</th><td class="mono">72C26262-41F3-5AC2-A417-B6F38EC73BE2</td><th>产品型号</th><td>MVVJ2LL/A</td></tr>
+            <tr><th>产品版本</th><td>MacBookPro16,1</td><td></td><td></td></tr>
+          </table>
+          <span class="hw-section-label">主板信息</span>
+          <table class="hw-kv-table" style="margin-bottom:0;">
+            <colgroup><col style="width:18%"><col style="width:32%"><col style="width:18%"><col style="width:32%"></colgroup>
+            <tr><th>主板标签</th><td>Baseboard-Asset-Tag</td><th>主板序列号</th><td class="mono">C0294150179N97JA6</td></tr>
+            <tr><th>主板供应商</th><td>Apple Inc.</td><th>主板版本</th><td>1.0</td></tr>
+            <tr><th>主板产品</th><td>Mac-E1008331FDC96864</td><td></td><td></td></tr>
+          </table>
+        </div>
+
+        <!-- ══ CPU 信息 ══ -->
+        <div class="tab-content" id="tab-cpu" style="padding:20px;">
+          <!-- 基础信息 header row -->
+          <div class="flex items-center justify-between mb-12">
+            <span class="panel-title">基础信息</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:12px;color:var(--gray-400);">总缓存大小：128MB</span>
+              <button class="toggle-all-btn" id="cpu-toggle-btn" onclick="toggleMore('cpu')">
+                <i class="ri-eye-line"></i> 查看全部
+              </button>
+            </div>
+          </div>
+
+          <!-- CPU device list — borderless rows -->
+          <div class="device-list" id="cpu-device-list">
+            <!-- CPU1 (always visible) -->
+            <div class="device-row">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-cpu-fill"></i>CPU1</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>供应商 ID</th><td>GenuineIntel</td><th>模型名称</th><td>Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz</td></tr>
+                  <tr><th>内核个数</th><td class="mono">6</td><th>主频</th><td class="mono">2600</td></tr>
+                  <tr><th>缓存大小(MB)</th><td class="mono">16</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+            <!-- CPU2 (hidden by default) -->
+            <div class="device-row cpu-extra" style="display:none;">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-cpu-fill"></i>CPU2</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>供应商 ID</th><td>GenuineIntel</td><th>模型名称</th><td>Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz</td></tr>
+                  <tr><th>内核个数</th><td class="mono">6</td><th>主频</th><td class="mono">2600</td></tr>
+                  <tr><th>缓存大小(MB)</th><td class="mono">16</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- CPU 使用趋势 — fixed below, always visible -->
+          <div class="flex items-center justify-between mb-8" style="margin-top:20px;">
+            <span class="panel-title">CPU使用趋势</span>
+            <div class="time-switcher" id="cpu-ts">
+              <button class="ts-btn active">24小时</button>
+              <button class="ts-btn">近7天</button>
+              <button class="ts-btn">近30天</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div style="font-size:11px;color:var(--gray-400);margin-bottom:6px;">CPU使用率 (%)</div>
+            <div class="chart-canvas-wrap" style="height:180px;"><canvas id="cpuChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ══ GPU 信息 ══ -->
+        <div class="tab-content" id="tab-gpu" style="padding:20px;">
+          <div class="flex items-center justify-between mb-12">
+            <span class="panel-title">基础信息</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:12px;color:var(--gray-400);">总显存大小：16GB</span>
+              <button class="toggle-all-btn" id="gpu-toggle-btn" onclick="toggleMore('gpu')">
+                <i class="ri-eye-line"></i> 查看全部
+              </button>
+            </div>
+          </div>
+
+          <!-- GPU device list — borderless rows -->
+          <div class="device-list">
+            <div class="device-row">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-layout-grid-line"></i>GPU1</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>产品名称</th><td>GV100GL [Tesla V100 SXM2 16GB]</td><th>供应商</th><td>NVIDIA Corporation</td></tr>
+                  <tr><th>驱动</th><td>nvidia</td><th>类型</th><td>Display controller</td></tr>
+                  <tr><th>物理显存大小(GB)</th><td class="mono">8</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+            <div class="device-row gpu-extra" style="display:none;">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-layout-grid-line"></i>GPU2</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>产品名称</th><td>GV100GL [Tesla V100 SXM2 16GB]</td><th>供应商</th><td>NVIDIA Corporation</td></tr>
+                  <tr><th>驱动</th><td>nvidia</td><th>类型</th><td>Display controller</td></tr>
+                  <tr><th>物理显存大小(GB)</th><td class="mono">8</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 显存占比 + 趋势图 — always visible below -->
+          <div class="flex gap-20" style="margin-top:20px;align-items:stretch;">
+            <div class="panel-col" style="flex:1;">
+              <div class="sub-title mb-8" style="color:var(--text-primary);font-size:13px;font-weight:600;">显存使用占比</div>
+              <div class="gpu-panel panel-box">
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="var(--gray-100)" stroke-width="14"/>
+                  <!-- 52.5% = 238.76*0.525 = 125.35 -->
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="#165DFF" stroke-width="14"
+                    stroke-dasharray="125.35 113.41" stroke-dashoffset="59.69" transform="rotate(-90 50 50)"/>
+                  <!-- 32.5% = 238.76*0.325 = 77.60 -->
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="#00B42A" stroke-width="14"
+                    stroke-dasharray="77.60 161.16" stroke-dashoffset="-65.66" transform="rotate(-90 50 50)"/>
+                  <!-- 15% = 238.76*0.15 = 35.81 -->
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="#722ED1" stroke-width="14"
+                    stroke-dasharray="35.81 202.95" stroke-dashoffset="-143.26" transform="rotate(-90 50 50)"/>
+                </svg>
+                <div class="gpu-legend">
+                  <div class="gpu-legend-item"><div class="gpu-dot" style="background:#165DFF;"></div><span>使用显存 (52.5%)</span></div>
+                  <div class="gpu-legend-item"><div class="gpu-dot" style="background:#00B42A;"></div><span>剩余显存 (32.5%)</span></div>
+                  <div class="gpu-legend-item"><div class="gpu-dot" style="background:#722ED1;"></div><span>预留显存 (15.0%)</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel-col" style="flex:2;">
+              <div class="flex items-center justify-between mb-8">
+                <span style="font-size:13px;font-weight:600;color:var(--text-primary);">显存使用趋势</span>
+                <div class="time-switcher" id="gpu-ts">
+                  <button class="ts-btn active">24小时</button>
+                  <button class="ts-btn">近7天</button>
+                  <button class="ts-btn">近30天</button>
+                </div>
+              </div>
+              <div class="chart-wrap panel-box">
+                <div style="font-size:11px;color:var(--gray-400);margin-bottom:6px;">显存使用 (GB)</div>
+                <div class="chart-canvas-wrap" style="height:150px;"><canvas id="gpuChart"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ 内存信息 ══ -->
+        <div class="tab-content" id="tab-mem" style="padding:20px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">基础信息</div>
+          <!-- 四个统计卡 -->
+          <div class="mem-stat-row">
+            <div class="mem-stat-card">
+              <div class="mem-stat-icon blue"></div>
+              <div><div class="mem-stat-label">总内存</div><div class="mem-stat-value">32 <span class="mem-stat-unit">GB</span></div></div>
+            </div>
+            <div class="mem-stat-card">
+              <div class="mem-stat-icon green"></div>
+              <div><div class="mem-stat-label">可用内存</div><div class="mem-stat-value">12.01 <span class="mem-stat-unit">GB</span></div></div>
+            </div>
+            <div class="mem-stat-card">
+              <div class="mem-stat-icon orange"></div>
+              <div><div class="mem-stat-label">已使用内存</div><div class="mem-stat-value">19.99 <span class="mem-stat-unit">GB</span></div></div>
+            </div>
+            <div class="mem-stat-card">
+              <div class="mem-stat-icon red"></div>
+              <div>
+                <div class="mem-stat-label">内存占比</div>
+                <div class="mem-stat-value">62.46 <span class="mem-stat-unit">%</span></div>
+                <div class="mem-usage-bar"><div class="mem-usage-fill" style="width:62.46%;background:var(--danger);"></div></div>
+              </div>
+            </div>
+          </div>
+          <!-- 趋势图 -->
+          <div class="flex items-center justify-between mb-8">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">内存使用趋势</span>
+            <div class="time-switcher" id="mem-ts">
+              <button class="ts-btn active">24小时</button>
+              <button class="ts-btn">近7天</button>
+              <button class="ts-btn">近30天</button>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <div style="font-size:11px;color:var(--gray-400);margin-bottom:6px;">内存使用量 (GB)</div>
+            <div class="chart-canvas-wrap" style="height:200px;"><canvas id="memChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ══ 硬盘信息 ══ -->
+        <div class="tab-content" id="tab-disk" style="padding:20px;">
+          <div class="flex items-center justify-between mb-12">
+            <span class="panel-title">基础信息</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span style="font-size:12px;color:var(--gray-400);">总硬盘容量：512G</span>
+              <button class="toggle-all-btn" id="disk-toggle-btn" onclick="toggleMore('disk')">
+                <i class="ri-eye-line"></i> 查看全部
+              </button>
+            </div>
+          </div>
+
+          <!-- 硬盘 device list — borderless rows, always above charts -->
+          <div class="device-list" style="margin-bottom:20px;">
+            <div class="device-row">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-hard-drive-2-line"></i>硬盘1</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>厂商</th><td>–</td><th>硬盘型号</th><td>–</td></tr>
+                  <tr><th>产品序列号</th><td>-</td><th>分区</th><td class="mono">/dev/disk1s4s1</td></tr>
+                  <tr><th>挂载点</th><td>-</td><th>文件类型</th><td>apfs</td></tr>
+                  <tr><th>存储容量(G)</th><td class="mono">256</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+            <div class="device-row disk-extra" style="display:none;">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-hard-drive-2-line"></i>硬盘2</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>厂商</th><td>–</td><th>硬盘型号</th><td>–</td></tr>
+                  <tr><th>产品序列号</th><td>-</td><th>分区</th><td class="mono">/dev/disk2s1</td></tr>
+                  <tr><th>挂载点</th><td>-</td><th>文件类型</th><td>apfs</td></tr>
+                  <tr><th>存储容量(G)</th><td class="mono">256</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 存储使用分布 + IO — always below device list -->
+          <div class="flex gap-20" style="align-items:stretch;">
+            <div class="panel-col" style="flex:1;">
+              <div class="sub-title mb-12">存储使用分布</div>
+              <div class="gpu-panel panel-box">
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="var(--gray-200)" stroke-width="14"/>
+                  <!-- 56% → 2π×38×0.56 ≈ 133.69 -->
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="#165DFF" stroke-width="14"
+                    stroke-dasharray="133.69 105.07" stroke-dashoffset="59.69" transform="rotate(-90 50 50)"/>
+                </svg>
+                <div style="font-size:12px;">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#165DFF;"></span>已使用 (56%)</div>
+                  <div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--gray-200);"></span>可用 (44%)</div>
+                  <div style="margin-top:10px;font-size:11px;color:var(--gray-400);">已使用 <strong style="color:var(--text-primary);">286.72G</strong></div>
+                  <div style="font-size:11px;color:var(--gray-400);">可用 <strong style="color:var(--text-primary);">225.28G</strong></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel-col" style="flex:2;">
+              <div class="sub-title mb-8">最近IO活动</div>
+              <div class="chart-wrap panel-box">
+                <div class="chart-canvas-wrap" style="height:160px;"><canvas id="diskChart"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ 网络信息 ══ -->
+        <div class="tab-content" id="tab-net" style="padding:20px;">
+          <div class="flex items-center justify-between mb-12">
+            <span class="panel-title">基础信息</span>
+            <button class="toggle-all-btn" id="net-toggle-btn" onclick="toggleMore('net')">
+              <i class="ri-eye-line"></i> 查看全部
+            </button>
+          </div>
+
+          <!-- 网络 device list — always above charts -->
+          <div class="device-list" style="margin-bottom:20px;">
+            <div class="device-row">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-global-line"></i>网络1</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>名称</th><td class="mono">en0</td><th>MAC地址</th><td class="mono">00:1A:2B:3C:4D:5E</td></tr>
+                  <tr><th>网络地址</th><td class="mono">10.12.0.148</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+            <div class="device-row net-extra" style="display:none;">
+              <div class="device-row-header" onclick="toggleDeviceRow(this)">
+                <div class="device-row-label"><i class="ri-global-line"></i>网络2</div>
+                <i class="ri-arrow-down-s-line device-row-arrow open"></i>
+              </div>
+              <div class="device-row-body open">
+                <table class="kv-table">
+                  <tr><th>名称</th><td class="mono">en1</td><th>MAC地址</th><td class="mono">00:1A:2B:3C:4D:5F</td></tr>
+                  <tr><th>网络地址</th><td class="mono">10.12.0.149</td><td></td><td></td></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 流量图等 — always below device list -->
+          <div class="flex items-center justify-between mb-8">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">网络流量监控</span>
+            <div class="time-switcher" id="net-ts">
+              <button class="ts-btn active">24小时</button>
+              <button class="ts-btn">近7天</button>
+              <button class="ts-btn">近30天</button>
+            </div>
+          </div>
+          <div class="chart-wrap mb-16">
+            <div style="font-size:11px;color:var(--gray-400);margin-bottom:6px;">上传 (MB/s) / 下载 (MB/s)</div>
+            <div class="chart-canvas-wrap" style="height:160px;"><canvas id="netChart"></canvas></div>
+          </div>
+          <div class="flex gap-14">
+            <div style="flex:1;min-width:0;">
+              <div class="sub-title mb-8">近7天数据包统计</div>
+              <div class="chart-wrap">
+                <div class="chart-canvas-wrap" style="height:140px;"><canvas id="netPktChart"></canvas></div>
+              </div>
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div class="sub-title mb-8">近7天错误与丢弃统计</div>
+              <div class="chart-wrap" style="display:flex;align-items:center;justify-content:center;min-height:160px;">
+                <div class="chart-canvas-wrap" style="height:140px;width:100%;"><canvas id="netErrChart"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ 系统信息 ══ -->
+        <div class="tab-content" id="tab-sys" style="padding:20px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">基础信息</div>
+          <table class="kv-table">
+            <tr><th>主机名</th><td>cengweimingdeMacBook-Pro.local</td><th>系统运行时间</th><td>3天1小时17分41秒</td></tr>
+            <tr><th>启动时间</th><td class="mono">2025-12-13 13:10:00</td><th>进程数量</th><td class="mono">732</td></tr>
+            <tr><th>操作系统</th><td>darwin</td><th>系统平台</th><td>Standalone Workstation</td></tr>
+            <tr><th>系统平台家族</th><td>14.6.1</td><th>系统平台版本</th><td>14.6.1</td></tr>
+            <tr><th>内核版本</th><td class="mono">23.6.0</td><th>内核架构</th><td class="mono">x86_64</td></tr>
+            <tr><th>虚拟化系统</th><td>physical</td><th>虚拟化角色</th><td>host</td></tr>
+            <tr><th>主机id</th><td class="mono" colspan="3">72c26262-41f3-5ac2-a417-b6f38ec73be2</td></tr>
+          </table>
+        </div>
+
+      </div><!-- /card -->
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="common.js"></script>
+<script>
+  initPage('probe', [{label:'探针管理', href:'probe-manage.html'},{label:'探针详情'}]);
+
+  /* ── Collect group accordion ── */
+  function toggleCollectGroup(header) {
+    var body = header.nextElementSibling;
+    var arrow = header.querySelector('.collect-group-arrow');
+    var open = body.classList.contains('open');
+    body.classList.toggle('open', !open);
+    arrow.classList.toggle('open', !open);
+  }
+
+  /* ── Device row toggle (inner expand/collapse) ── */
+  function toggleDeviceRow(header) {
+    var body = header.nextElementSibling;
+    var arrow = header.querySelector('.device-row-arrow');
+    var open = body.classList.contains('open');
+    body.classList.toggle('open', !open);
+    arrow.classList.toggle('open', !open);
+  }
+
+  /* ── Show/hide extra devices ── */
+  function toggleMore(type) {
+    var extras = document.querySelectorAll('.' + type + '-extra');
+    var btn = document.getElementById(type + '-toggle-btn');
+    var anyVisible = extras.length > 0 && extras[0].style.display !== 'none';
+    extras.forEach(function(el) { el.style.display = anyVisible ? 'none' : ''; });
+    btn.innerHTML = anyVisible
+      ? '<i class="ri-eye-line"></i> 查看全部'
+      : '<i class="ri-eye-off-line"></i> 收起';
+  }
+
+  /* ── Time switcher ── */
+  document.querySelectorAll('.time-switcher').forEach(function(sw) {
+    sw.querySelectorAll('.ts-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        sw.querySelectorAll('.ts-btn').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+      });
+    });
+  });
+
+  /* ── Chart helpers ── */
+  var BLUE = '#165DFF', GREEN = '#00B42A', ORANGE = '#FF7D00';
+  var HOURS = ['0:00','3:00','6:00','9:00','12:00','15:00','18:00','21:00','23:00'];
+
+  function makeGradient(ctx, r, g, b) {
+    var gr = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    gr.addColorStop(0, 'rgba('+r+','+g+','+b+',0.28)');
+    gr.addColorStop(1, 'rgba('+r+','+g+','+b+',0.02)');
+    return gr;
+  }
+
+  var chartBase = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend:{display:false}, tooltip:{mode:'index',intersect:false} },
+    interaction: { mode:'nearest', axis:'x', intersect:false },
+    scales: {
+      x: { grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11},color:'#86909C'} },
+      y: { grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11},color:'#86909C'}, beginAtZero:true }
+    }
+  };
+
+  function deepMerge(a, b) {
+    var out = Object.assign({}, a);
+    for (var k in b) {
+      if (b[k] && typeof b[k] === 'object' && !Array.isArray(b[k])) out[k] = deepMerge(a[k]||{}, b[k]);
+      else out[k] = b[k];
+    }
+    return out;
+  }
+
+  function lineDs(label, data, r, g, b, ctx) {
+    var col = 'rgb('+r+','+g+','+b+')';
+    return { label:label, data:data, borderColor:col, borderWidth:2,
+      pointRadius:3, pointBackgroundColor:'#fff', pointBorderColor:col,
+      fill:true, backgroundColor:makeGradient(ctx,r,g,b), tension:0.4 };
+  }
+
+  /* CPU */
+  (function(){
+    var ctx = document.getElementById('cpuChart').getContext('2d');
+    new Chart(ctx, { type:'line',
+      data:{ labels:HOURS, datasets:[lineDs('CPU使用率(%)',[18,22,28,20,15,25,30,25,22],22,93,255,ctx)] },
+      options: deepMerge(chartBase,{ scales:{ y:{ max:100, ticks:{ callback:function(v){return v+'%'; } } } } })
+    });
+  })();
+
+  /* GPU */
+  (function(){
+    var ctx = document.getElementById('gpuChart').getContext('2d');
+    new Chart(ctx, { type:'line',
+      data:{ labels:HOURS, datasets:[lineDs('显存使用(GB)',[3.5,4,4.5,4.2,3.8,5,7,8,8.2,8,7.5,6.5,5,4.5,4],22,93,255,ctx)] },
+      options: deepMerge(chartBase,{ scales:{ y:{ max:10, ticks:{ callback:function(v){return v+'GB'; } } } } })
+    });
+  })();
+
+  /* Memory */
+  (function(){
+    var ctx = document.getElementById('memChart').getContext('2d');
+    new Chart(ctx, { type:'line',
+      data:{ labels:HOURS, datasets:[lineDs('内存使用量(GB)',[8.5,8,8.8,9,8.2,7,6,7.5,8,8.5,8,7.8,7.2,7,6.8,8.5,9,8.8,8,7.5,6.5],0,180,42,ctx)] },
+      options: deepMerge(chartBase,{ scales:{ y:{ max:15, ticks:{ callback:function(v){return v+'GB'; } } } } })
+    });
+  })();
+
+  /* Disk IO */
+  (function(){
+    var ctx = document.getElementById('diskChart').getContext('2d');
+    new Chart(ctx, { type:'bar',
+      data:{ labels:['0:00','2:00','4:00','6:00','8:00','10:00','12:00','14:00','16:00','18:00','20:00','22:00'],
+        datasets:[
+          {label:'读取', data:[40,18,15,50,42,44,30,32,28,40,26,24], backgroundColor:BLUE, borderRadius:3},
+          {label:'写入', data:[20,8,5,12,18,20,14,20,14,12,20,28], backgroundColor:GREEN, borderRadius:3}
+        ] },
+      options: deepMerge(chartBase,{
+        plugins:{ legend:{display:true,position:'top',labels:{font:{size:11},boxWidth:12}}, tooltip:{mode:'index',intersect:false} },
+        scales:{ y:{ ticks:{ callback:function(v){return v+'MB/s'; } } } }
+      })
+    });
+  })();
+
+  /* Net Traffic */
+  (function(){
+    var ctx = document.getElementById('netChart').getContext('2d');
+    new Chart(ctx, { type:'line',
+      data:{ labels:HOURS, datasets:[
+        lineDs('下载(MB/s)',[2.5,3,6,4.5,3.5,6,5.5,5.8,5.5,4.5,4.2,3,4.5,6.2],22,93,255,ctx),
+        lineDs('上传(MB/s)',[2,1.8,2.5,1.5,1.2,2.5,2.8,2.5,2.8,2.2,3.2,1.5,2.8,3],255,125,0,ctx)
+      ] },
+      options: deepMerge(chartBase,{
+        plugins:{ legend:{display:true,position:'top',labels:{font:{size:11},boxWidth:12}}, tooltip:{mode:'index',intersect:false} },
+        scales:{ y:{ max:8, ticks:{ callback:function(v){return v+'MB/s'; } } } }
+      })
+    });
+  })();
+
+  /* Net Packets */
+  (function(){
+    var ctx = document.getElementById('netPktChart').getContext('2d');
+    new Chart(ctx, { type:'bar',
+      data:{ labels:['周一','周二','周三','周四','周五','周六','周日'],
+        datasets:[
+          {label:'收包数量', data:[120,190,150,150,220,180,290], backgroundColor:BLUE, borderRadius:3},
+          {label:'发包数量', data:[90,95,130,110,140,180,210], backgroundColor:GREEN, borderRadius:3}
+        ] },
+      options: deepMerge(chartBase,{
+        plugins:{ legend:{display:true,position:'top',labels:{font:{size:11},boxWidth:12}}, tooltip:{mode:'index',intersect:false} },
+        scales:{ y:{ ticks:{ callback:function(v){return v+'K'; } } } }
+      })
+    });
+  })();
+
+  /* Net Errors Doughnut */
+  (function(){
+    var ctx = document.getElementById('netErrChart').getContext('2d');
+    new Chart(ctx, { type:'doughnut',
+      data:{ labels:['接受错误','发送错误','接受丢弃','发送丢弃'],
+        datasets:[{ data:[35,25,22,18], backgroundColor:['#F53F3F','#FF7D00','#86909C','#1D2129'], borderWidth:2, borderColor:'#fff', hoverOffset:6 }] },
+      options:{ responsive:true, maintainAspectRatio:false, cutout:'60%',
+        plugins:{ legend:{display:true,position:'right',labels:{font:{size:11},boxWidth:12}}, tooltip:{} } }
+    });
+  })();
+</script>
+</body>
+</html>

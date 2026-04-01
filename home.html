@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <!-- ── Auth Guard: 未登录则跳回登录页 ── -->
+  <script>
+    (function() {
+      if (sessionStorage.getItem('aibom_auth') !== 'authenticated') {
+        window.location.replace('index.html');
+      }
+    })();
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作台 - AIBOM Platform</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    /* Dashboard-specific overrides */
+    .welcome-banner {
+      background: linear-gradient(135deg, #1a2340 0%, #1e2b4a 60%, #162b5a 100%);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 2px 8px 0 rgba(22,93,255,0.10);
+    }
+    .welcome-banner::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -20px;
+      width: 220px; height: 220px;
+      background: radial-gradient(circle, rgba(22,93,255,0.2) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .welcome-banner::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; right: 80px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(114,46,209,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .welcome-info { position: relative; z-index: 1; }
+    .welcome-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 4px; letter-spacing: -0.2px; }
+    .welcome-desc { font-size: 12px; color: #94a3b8; line-height: 1.6; }
+    .welcome-desc strong { color: #60a5fa; }
+    .welcome-stats { display: flex; gap: 28px; position: relative; z-index: 1; }
+    .ws-item { text-align: center; }
+    .ws-val { font-size: 20px; font-weight: 700; font-family: var(--font-mono); color: #60a5fa; line-height: 1.2; }
+    .ws-label { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .ws-divider { width: 1px; background: rgba(255,255,255,0.08); }
+
+    /* Charts */
+    .chart-js-area { width: 100% !important; height: 220px !important; }
+    canvas.chart-js-area { display: block; }
+
+    /* Trend legend */
+    .trend-legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+    .trend-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--gray-500); }
+    .trend-legend-dot { width: 10px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+    /* Distribution chart row */
+    .dist-row { display: flex; gap: 16px; }
+    .dist-donut { flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .dist-legend { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+    .dist-legend-item { display: flex; align-items: center; gap: 8px; }
+    .dist-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .dist-legend-label { font-size: 12px; color: var(--text-secondary); flex: 1; }
+    .dist-legend-count { font-size: 13px; font-weight: 700; font-family: var(--font-mono); color: var(--text-primary); min-width: 40px; text-align: right; }
+    .dist-legend-pct { font-size: 11px; color: var(--gray-400); font-family: var(--font-mono); min-width: 44px; text-align: right; }
+    .dist-bar-wrap { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+    .dist-bar { flex: 1; height: 3px; background: var(--gray-100); border-radius: 2px; overflow: hidden; }
+    .dist-bar-fill { height: 100%; border-radius: 2px; }
+
+    /* Time switcher */
+    .time-switcher { display: flex; gap: 0; }
+    .ts-btn {
+      padding: 4px 12px; font-size: 11px; font-weight: 500;
+      font-family: var(--font-sans);
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      color: var(--gray-400); cursor: pointer;
+      transition: var(--t-fast); margin-left: -1px;
+    }
+    .ts-btn:first-child { margin-left: 0; border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .ts-btn:last-child  { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    .ts-btn:hover { color: var(--primary); border-color: var(--primary); z-index: 1; position: relative; }
+    .ts-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); z-index: 2; position: relative; }
+
+    /* Quick action grid */
+    .quick-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 20px; }
+    .quick-action {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px; padding: 16px 12px;
+      background: var(--gray-50); border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); cursor: pointer;
+      transition: var(--t-fast); text-decoration: none; color: var(--gray-500);
+    }
+    .quick-action:hover {
+      border-color: var(--primary); background: var(--primary-50);
+      color: var(--primary); transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .qa-icon { font-size: 22px; line-height: 1; }
+    .qa-label { font-size: 12px; font-weight: 500; text-align: center; line-height: 1.4; }
+
+    /* Task status tags */
+    .task-status { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 11px; font-weight: 500; border-radius: 100px; white-space: nowrap; }
+    .task-status.running  { background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary-100); }
+    .task-status.completed{ background: var(--success-light); color: var(--success); border: 1px solid #6ee7b7; }
+    .task-status.failed   { background: var(--danger-light);  color: var(--danger);  border: 1px solid #fca5a5; }
+
+    /* Dark mode: task-status completed & failed */
+    html.dark .task-status.completed { background: rgba(0,180,42,0.15); color: #4ade80; border-color: rgba(0,180,42,0.3); }
+    html.dark .task-status.failed    { background: rgba(245,63,63,0.15); color: #f87171; border-color: rgba(245,63,63,0.3); }
+
+    /* Task progress */
+    .task-progress-wrap { display: flex; align-items: center; gap: 8px; }
+    .task-progress-wrap .progress-bar { flex: 1; min-width: 70px; }
+    .task-progress-wrap .progress-pct { font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); min-width: 32px; text-align: right; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main">
+    <header class="header" id="header"></header>
+    <div class="page-content page-enter">
+
+      <!-- Welcome Banner -->
+      <div class="welcome-banner">
+        <div class="welcome-info">
+          <div class="welcome-title">欢迎回来，Admin</div>
+          <div class="welcome-desc">AIBOM 智能资产与漏洞管理平台 — 当前系统运行正常，共监控 <strong>1,284</strong> 项资产</div>
+        </div>
+        <div class="welcome-stats">
+          <div class="ws-item"><div class="ws-val">99.8%</div><div class="ws-label">系统可用率</div></div>
+          <div class="ws-divider"></div>
+          <div class="ws-item"><div class="ws-val">47</div><div class="ws-label">今日告警</div></div>
+          <div class="ws-divider"></div>
+          <div class="ws-item"><div class="ws-val">12</div><div class="ws-label">待处理任务</div></div>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-grid mb-20 delay-1 page-enter">
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div>
+              <div class="stat-label">资产总数</div>
+              <div class="stat-value count-anim">1,284</div>
+            </div>
+            <div class="stat-icon blue"><i class="ri-server-line"></i></div>
+          </div>
+          <div class="stat-footer">
+            <span class="stat-footer-label">较上周</span>
+            <span class="stat-footer-val red">↑ +56</span>
+          </div>
+          <div class="stat-card-bar blue"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div>
+              <div class="stat-label">漏洞总数</div>
+              <div class="stat-value count-anim">3,847</div>
+            </div>
+            <div class="stat-icon red"><i class="ri-bug-line"></i></div>
+          </div>
+          <div class="stat-footer">
+            <span class="stat-footer-label">较上周</span>
+            <span class="stat-footer-val red">↑ +128</span>
+          </div>
+          <div class="stat-card-bar red"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div>
+              <div class="stat-label">在线探针数</div>
+              <div class="stat-value count-anim">86</div>
+            </div>
+            <div class="stat-icon green"><i class="ri-radar-line"></i></div>
+          </div>
+          <div class="stat-footer">
+            <span class="stat-footer-label">较上周</span>
+            <span class="stat-footer-val green">↓ -3</span>
+          </div>
+          <div class="stat-card-bar green"></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-top">
+            <div>
+              <div class="stat-label">扫描任务数</div>
+              <div class="stat-value count-anim">152</div>
+            </div>
+            <div class="stat-icon amber"><i class="ri-scan-2-line"></i></div>
+          </div>
+          <div class="stat-footer">
+            <span class="stat-footer-label">较上周</span>
+            <span class="stat-footer-val blue">↑ +12</span>
+          </div>
+          <div class="stat-card-bar amber"></div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid-2 mb-20 delay-2 page-enter">
+
+        <!-- Trend Chart -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="card-title-bar blue"></div>
+              近期漏洞趋势
+            </div>
+            <div class="time-switcher">
+              <button class="ts-btn active" data-range="24h">24h</button>
+              <button class="ts-btn" data-range="7d">7d</button>
+              <button class="ts-btn" data-range="30d">30d</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:12px;">
+            <canvas id="trendChart" class="chart-js-area"></canvas>
+            <div class="trend-legend mt-12">
+              <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#165DFF;"></div>新增漏洞</div>
+              <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#00B42A;border-top:1px dashed #00B42A;height:0;"></div>已修复</div>
+              <div class="trend-legend-item"><div class="trend-legend-dot" style="background:#F53F3F;"></div>累计未修复</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Distribution Chart -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="card-title-bar red"></div>
+              漏洞等级分布
+            </div>
+            <a href="vulnerability-manage.html" class="btn btn-ghost btn-sm">
+              查看详情 <i class="ri-arrow-right-s-line"></i>
+            </a>
+          </div>
+          <div class="card-body" style="padding-top:16px;">
+            <div class="dist-row">
+              <div class="dist-donut">
+                <canvas id="donutChart" width="140" height="140"></canvas>
+              </div>
+              <div class="dist-legend">
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:#722ED1;"></div>
+                  <span class="dist-legend-label">严重</span>
+                  <span class="dist-legend-count">401</span>
+                  <span class="dist-legend-pct">10.4%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="background:#722ED1;width:10.4%;"></div></div></div>
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:#F53F3F;"></div>
+                  <span class="dist-legend-label">高危</span>
+                  <span class="dist-legend-count">846</span>
+                  <span class="dist-legend-pct">22.0%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="background:#F53F3F;width:22%;"></div></div></div>
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:#FF7D00;"></div>
+                  <span class="dist-legend-label">中危</span>
+                  <span class="dist-legend-count">1,350</span>
+                  <span class="dist-legend-pct">35.1%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="background:#FF7D00;width:35.1%;"></div></div></div>
+                <div class="dist-legend-item">
+                  <div class="dist-legend-dot" style="background:#00B42A;"></div>
+                  <span class="dist-legend-label">低危</span>
+                  <span class="dist-legend-count">1,250</span>
+                  <span class="dist-legend-pct">32.5%</span>
+                </div>
+                <div class="dist-bar-wrap"><div class="dist-bar"><div class="dist-bar-fill" style="background:#00B42A;width:32.5%;"></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card mb-20 delay-3 page-enter">
+        <div class="card-header">
+          <div class="card-title"><div class="card-title-bar cyan"></div>快速操作入口</div>
+        </div>
+        <div class="quick-actions">
+          <a class="quick-action" href="probe-manage.html">
+            <div class="qa-icon"><i class="ri-radar-line"></i></div>
+            <div class="qa-label">注册探针</div>
+          </a>
+          <a class="quick-action" href="bom-manage.html">
+            <div class="qa-icon"><i class="ri-scan-2-line"></i></div>
+            <div class="qa-label">创建扫描任务</div>
+          </a>
+          <a class="quick-action" href="bom-manage.html">
+            <div class="qa-icon"><i class="ri-file-download-line"></i></div>
+            <div class="qa-label">导出BOM清单</div>
+          </a>
+          <a class="quick-action" href="vulnerability-manage.html">
+            <div class="qa-icon"><i class="ri-file-shield-2-line"></i></div>
+            <div class="qa-label">导出漏洞清单</div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Risk TOP5 + Recent Tasks -->
+      <div class="grid-2 delay-4 page-enter">
+
+        <!-- Risk TOP5 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-bar orange"></div>风险组件 TOP5</div>
+            <a href="bom-manage.html" class="btn btn-ghost btn-sm">全部资产 <i class="ri-arrow-right-s-line"></i></a>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:32px;">#</th>
+                  <th>资产名称</th>
+                  <th>IP</th>
+                  <th>风险等级</th>
+                  <th style="text-align:right;">漏洞数</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="font-weight:700;color:var(--danger);">1</td>
+                  <td>
+                    <div style="font-weight:600;">web-prod-gateway</div>
+                    <div class="text-xs" style="color:var(--gray-400);">Nginx 1.18.0</div>
+                  </td>
+                  <td class="mono" style="font-size:12px;">192.168.1.10</td>
+                  <td><span class="badge badge-critical">严重</span></td>
+                  <td style="text-align:right;"><span class="mono fw-600 text-danger">87</span></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700;color:var(--danger);">2</td>
+                  <td>
+                    <div style="font-weight:600;">db-master-mysql</div>
+                    <div class="text-xs" style="color:var(--gray-400);">MySQL 5.7.36</div>
+                  </td>
+                  <td class="mono" style="font-size:12px;">192.168.2.20</td>
+                  <td><span class="badge badge-critical">严重</span></td>
+                  <td style="text-align:right;"><span class="mono fw-600 text-danger">72</span></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700;color:var(--warning);">3</td>
+                  <td>
+                    <div style="font-weight:600;">api-service-core</div>
+                    <div class="text-xs" style="color:var(--gray-400);">Spring Boot 2.5.4</div>
+                  </td>
+                  <td class="mono" style="font-size:12px;">10.0.3.105</td>
+                  <td><span class="badge badge-high">高危</span></td>
+                  <td style="text-align:right;"><span class="mono fw-600" style="color:var(--warning);">58</span></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700;color:var(--warning);">4</td>
+                  <td>
+                    <div style="font-weight:600;">redis-cache-01</div>
+                    <div class="text-xs" style="color:var(--gray-400);">Redis 6.2.5</div>
+                  </td>
+                  <td class="mono" style="font-size:12px;">10.0.3.88</td>
+                  <td><span class="badge badge-high">高危</span></td>
+                  <td style="text-align:right;"><span class="mono fw-600" style="color:var(--warning);">43</span></td>
+                </tr>
+                <tr>
+                  <td style="font-weight:700;color:var(--gray-400);">5</td>
+                  <td>
+                    <div style="font-weight:600;">mq-broker-kafka</div>
+                    <div class="text-xs" style="color:var(--gray-400);">Kafka 2.8.0</div>
+                  </td>
+                  <td class="mono" style="font-size:12px;">10.0.4.12</td>
+                  <td><span class="badge badge-medium">中危</span></td>
+                  <td style="text-align:right;"><span class="mono fw-600">36</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recent Tasks -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title"><div class="card-title-bar green"></div>最近扫描任务</div>
+            <a href="bom-manage.html" class="btn btn-ghost btn-sm">所有任务 <i class="ri-arrow-right-s-line"></i></a>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>任务名称</th>
+                  <th>状态</th>
+                  <th>进度</th>
+                  <th style="white-space:nowrap;">启动时间</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    <div style="font-weight:600;">生产环境全量扫描</div>
+                    <div class="text-xs" style="color:var(--gray-400);">192.168.1.0/24</div>
+                  </td>
+                  <td><span class="task-status running"><span class="status-dot online pulse-dot"></span>进行中</span></td>
+                  <td>
+                    <div class="task-progress-wrap">
+                      <div class="progress-bar"><div class="progress-fill primary" style="width:72%;"></div></div>
+                      <span class="progress-pct">72%</span>
+                    </div>
+                  </td>
+                  <td class="mono text-sm" style="color:var(--gray-400);">03-05 09:15</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight:600;">DMZ区域安全审计</div>
+                    <div class="text-xs" style="color:var(--gray-400);">10.0.1.0/24</div>
+                  </td>
+                  <td><span class="task-status running"><span class="status-dot online pulse-dot"></span>进行中</span></td>
+                  <td>
+                    <div class="task-progress-wrap">
+                      <div class="progress-bar"><div class="progress-fill primary" style="width:45%;"></div></div>
+                      <span class="progress-pct">45%</span>
+                    </div>
+                  </td>
+                  <td class="mono text-sm" style="color:var(--gray-400);">03-05 08:30</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight:600;">开发环境组件检查</div>
+                    <div class="text-xs" style="color:var(--gray-400);">172.16.0.0/16</div>
+                  </td>
+                  <td><span class="task-status completed"><i class="ri-check-line"></i>已完成</span></td>
+                  <td>
+                    <div class="task-progress-wrap">
+                      <div class="progress-bar"><div class="progress-fill success" style="width:100%;"></div></div>
+                      <span class="progress-pct">100%</span>
+                    </div>
+                  </td>
+                  <td class="mono text-sm" style="color:var(--gray-400);">03-04 22:00</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight:600;">数据库集群深度扫描</div>
+                    <div class="text-xs" style="color:var(--gray-400);">192.168.2.0/24</div>
+                  </td>
+                  <td><span class="task-status completed"><i class="ri-check-line"></i>已完成</span></td>
+                  <td>
+                    <div class="task-progress-wrap">
+                      <div class="progress-bar"><div class="progress-fill success" style="width:100%;"></div></div>
+                      <span class="progress-pct">100%</span>
+                    </div>
+                  </td>
+                  <td class="mono text-sm" style="color:var(--gray-400);">03-04 18:45</td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-weight:600;">容器镜像漏洞扫描</div>
+                    <div class="text-xs" style="color:var(--gray-400);">Harbor Registry</div>
+                  </td>
+                  <td><span class="task-status failed"><i class="ri-close-line"></i>失败</span></td>
+                  <td>
+                    <div class="task-progress-wrap">
+                      <div class="progress-bar"><div class="progress-fill danger" style="width:33%;"></div></div>
+                      <span class="progress-pct">33%</span>
+                    </div>
+                  </td>
+                  <td class="mono text-sm" style="color:var(--gray-400);">03-04 16:20</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.page-content -->
+  </div><!-- /.main -->
+</div><!-- /.layout -->
+
+<script src="common.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  initPage('dashboard', [{label: '工作台'}]);
+
+  Chart.defaults.font.family = 'Outfit, PingFang SC, sans-serif';
+
+  // ─── Trend Chart ───
+  var trendDatasets = {
+    '24h': {
+      labels: ['00','02','04','06','08','10','12','14','16','18','20','22'].map(h=>h+':00'),
+      new:    [3,1,2,0,4,2,3,5,8,12,7,6],
+      fixed:  [2,1,1,0,2,1,2,3,4,6,5,4],
+      total:  [220,221,222,222,224,225,226,228,232,238,240,242]
+    },
+    '7d': {
+      labels: ['周一','周二','周三','周四','周五','周六','周日'],
+      new:    [45,62,38,91,54,73,48],
+      fixed:  [30,41,28,67,39,55,31],
+      total:  [2180,2201,2211,2235,2250,2268,2285]
+    },
+    '30d': {
+      labels: Array.from({length:30},(_,i)=>i+1+'日'),
+      new:    [20,35,28,42,55,38,61,44,30,52,47,66,39,71,53,45,38,62,44,57,40,33,49,55,37,61,48,42,55,48],
+      fixed:  [15,25,20,30,40,28,44,33,22,38,35,50,29,55,40,32,27,48,33,42,30,25,37,41,27,48,36,31,41,37],
+      total:  [2100,2110,2118,2130,2145,2155,2172,2183,2191,2205,2217,2233,2243,2259,2272,2285,2296,2310,2321,2336,2346,2354,2366,2380,2390,2403,2415,2426,2440,2451]
+    }
+  };
+
+  var trendInst = null;
+  function buildTrend(key) {
+    var d = trendDatasets[key];
+    var ctx = document.getElementById('trendChart');
+    if (!ctx) return;
+    if (trendInst) trendInst.destroy();
+    var isDark = document.documentElement.classList.contains('dark');
+    var tickColor  = isDark ? 'rgba(255,255,255,0.45)' : '#86909C';
+    var gridColor  = isDark ? 'rgba(255,255,255,0.08)'  : '#F2F3F5';
+    var xLineColor = isDark ? 'rgba(255,255,255,0.4)'   : 'rgba(0,0,0,0.1)';
+    trendInst = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: d.labels,
+        datasets: [
+          { label:'新增漏洞', data:d.new, borderColor:'#165DFF', backgroundColor:'rgba(22,93,255,0.06)', borderWidth:2, tension:0.4, fill:true, pointRadius:0, pointHoverRadius:4, pointBackgroundColor:'#165DFF' },
+          { label:'已修复', data:d.fixed, borderColor:'#00B42A', backgroundColor:'rgba(0,180,42,0.04)', borderWidth:2, tension:0.4, fill:true, pointRadius:0, pointHoverRadius:4, borderDash:[4,3] },
+          { label:'累计未修复', data:d.total, borderColor:'#F53F3F', backgroundColor:'rgba(245,63,63,0.04)', borderWidth:2, tension:0.4, fill:false, pointRadius:0, pointHoverRadius:4, yAxisID:'y1' }
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1D2129', titleColor:'#86909C', bodyColor:'#F9FAFB', padding:10, cornerRadius:6, titleFont:{size:11}, bodyFont:{size:12,weight:'500'} } },
+        scales:{
+          x:{ grid:{display:false}, border:{display:true, color: xLineColor}, ticks:{color: tickColor,font:{size:11},maxTicksLimit:8} },
+          y:{ grid:{color: gridColor}, border:{display:false}, ticks:{color: tickColor,font:{size:11},maxTicksLimit:5} },
+          y1:{ position:'right', grid:{display:false}, border:{display:false}, ticks:{color: tickColor,font:{size:11},maxTicksLimit:5} }
+        }
+      }
+    });
+  }
+  buildTrend('24h');
+
+  document.querySelectorAll('.ts-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      btn.closest('.time-switcher').querySelectorAll('.ts-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      buildTrend(btn.dataset.range);
+    });
+  });
+  window.addEventListener('resize', function() {
+    var ab = document.querySelector('.ts-btn.active');
+    if (ab) buildTrend(ab.dataset.range);
+  });
+
+  // Rebuild trend chart on theme toggle to apply correct x-axis colors
+  var _origApplyTheme = window.applyTheme;
+  window.applyTheme = function(dark) {
+    if (_origApplyTheme) _origApplyTheme(dark);
+    var ab = document.querySelector('.ts-btn.active');
+    if (ab) setTimeout(function(){ buildTrend(ab.dataset.range); }, 0);
+  };
+
+  // ─── Donut Chart ───
+  var donutCtx = document.getElementById('donutChart');
+  if (donutCtx) {
+    new Chart(donutCtx, {
+      type:'doughnut',
+      data:{
+        datasets:[{
+          data:[401,846,1350,1250],
+          backgroundColor:['#722ED1','#F53F3F','#FF7D00','#00B42A'],
+          borderWidth:2, borderColor:'#fff', hoverOffset:4
+        }]
+      },
+      options:{
+        responsive:false, cutout:'68%',
+        plugins:{ legend:{display:false}, tooltip:{ backgroundColor:'#1D2129', bodyColor:'#F9FAFB', padding:8, cornerRadius:6,
+          callbacks:{ label:ctx=>` ${['严重','高危','中危','低危'][ctx.dataIndex]}: ${ctx.parsed}` }
+        }}
+      }
+    });
+  }
+});
+</script>
+</body>
+</html>
